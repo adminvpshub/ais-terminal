@@ -1,0 +1,35 @@
+export enum LinuxDistro {
+  Ubuntu22 = 'Ubuntu 22.04 LTS',
+  Ubuntu24 = 'Ubuntu 24.04 LTS',
+  AlmaLinux9 = 'AlmaLinux 9',
+}
+
+export enum ConnectionStatus {
+  Disconnected = 'disconnected',
+  Connecting = 'connecting',
+  Connected = 'connected',
+  Error = 'error',
+}
+
+export interface SSHProfile {
+  id: string;
+  name: string;
+  host: string;
+  username: string;
+  privateKey: string;
+  passphrase?: string;
+  distro: LinuxDistro;
+}
+
+export interface TerminalEntry {
+  id: string;
+  type: 'command' | 'output' | 'error' | 'info';
+  content: string;
+  timestamp: number;
+}
+
+export interface CommandGenerationResult {
+  command: string;
+  explanation: string;
+  dangerous: boolean;
+}

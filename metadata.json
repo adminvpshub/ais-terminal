@@ -1,0 +1,5 @@
+{
+  "name": "TermiGen AI - SSH Command Assistant",
+  "description": "A React application that manages SSH connection profiles and uses Gemini AI to translate natural language into Linux commands, simulating execution output for various distributions.",
+  "requestFramePermissions": []
+}

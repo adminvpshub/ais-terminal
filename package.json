@@ -1,0 +1,32 @@
+{
+  "name": "termigen-ai---ssh-command-assistant",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^19.2.1",
+    "@google/genai": "^1.31.0",
+    "lucide-react": "^0.555.0",
+    "react-dom": "^19.2.1",
+    "express": "^5.2.1",
+    "body-parser": "^2.2.1",
+    "cors": "^2.8.5",
+    "ssh2": "^1.17.0",
+    "socket.io": "^4.7.5",
+    "socket.io-client": "^4.7.5",
+    "http": "^0.0.1-security",
+    "path": "^0.12.7",
+    "fs": "^0.0.1-security"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "typescript": "~5.8.2",
+    "vite": "^6.2.0"
+  }
+}
