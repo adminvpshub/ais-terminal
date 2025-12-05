@@ -1,10 +1,14 @@
-const express = require('express');
-const { createServer } = require('http');
-const { Server } = require('socket.io');
-const { Client } = require('ssh2');
-const cors = require('cors');
-const fs = require('fs').promises;
-const path = require('path');
+import express from 'express';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
+import { Client } from 'ssh2';
+import cors from 'cors';
+import fs from 'fs/promises';
+import path, { dirname } from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const app = express();
 const httpServer = createServer(app);
