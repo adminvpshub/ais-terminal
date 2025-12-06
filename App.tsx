@@ -6,7 +6,7 @@ import { SSHProfile, TerminalEntry, CommandGenerationResult, ConnectionStatus } 
 import { generateLinuxCommand } from './services/geminiService';
 import { socket, connectSocket } from './services/sshService';
 import { SAMPLE_PROMPTS } from './constants';
-import { Send, Play, Cpu, AlertTriangle, Command, Link, Keyboard, ServerOff } from 'lucide-react';
+import { Send, Play, Cpu, AlertTriangle, Command, Link, Keyboard, ServerOff, Sparkles, Terminal as TerminalIcon } from 'lucide-react';
 
 const API_URL = 'http://localhost:3001';
 
@@ -21,6 +21,7 @@ const App: React.FC = () => {
   const [pendingCommand, setPendingCommand] = useState<CommandGenerationResult | null>(null);
   const [isThinking, setIsThinking] = useState(false);
   const [isExecuting, setIsExecuting] = useState(false); // Indicates if a command is currently running on server
+  const [inputMode, setInputMode] = useState<'ai' | 'direct'>('ai');
   const [backendError, setBackendError] = useState<string | null>(null);
 
   // --- Refs ---
@@ -219,6 +220,12 @@ const App: React.FC = () => {
        return;
     }
 
+    // DIRECT MODE: Execute command directly
+    if (inputMode === 'direct') {
+      runDirectCommand(input);
+      return;
+    }
+
     // AI MODE: Generate command
     const profile = getActiveProfile();
     if (!profile) {
@@ -242,6 +249,24 @@ const App: React.FC = () => {
     } finally {
       setIsThinking(false);
     }
+  };
+
+  const runDirectCommand = (cmd: string) => {
+    if (connectionStatus !== ConnectionStatus.Connected) {
+        addLog('error', 'Not connected. Please connect to the server first.');
+        return;
+    }
+
+    setIsExecuting(true);
+    addLog('command', cmd);
+
+    // Start execution via socket
+    socket.emit('ssh:execute', cmd);
+
+    setPendingCommand(null);
+    setInput('');
+    // Focus input for potential interactive needs
+    setTimeout(() => inputRef.current?.focus(), 100);
   };
 
   const handleExecute = () => {
@@ -371,6 +396,26 @@ const App: React.FC = () => {
               </div>
             )}
 
+            {/* Input Mode Toggle */}
+            <div className="flex justify-end mb-2">
+              <div className="bg-gray-800 p-1 rounded-lg flex text-xs font-medium border border-gray-700">
+                <button
+                  onClick={() => setInputMode('ai')}
+                  disabled={isExecuting}
+                  className={`px-3 py-1 rounded flex items-center gap-2 transition-colors ${inputMode === 'ai' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-gray-200'} ${isExecuting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  <Sparkles size={14} /> AI
+                </button>
+                <button
+                  onClick={() => setInputMode('direct')}
+                  disabled={isExecuting}
+                  className={`px-3 py-1 rounded flex items-center gap-2 transition-colors ${inputMode === 'direct' ? 'bg-green-600 text-white' : 'text-gray-400 hover:text-gray-200'} ${isExecuting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  <TerminalIcon size={14} /> Direct
+                </button>
+              </div>
+            </div>
+
             {/* Input Area - Changes based on state */}
             <div className={`relative transition-all duration-200 ${pendingCommand ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
               <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
@@ -400,7 +445,10 @@ const App: React.FC = () => {
                   disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-800/50
                   ${isExecuting 
                     ? 'bg-gray-800 border-2 border-yellow-500/50 text-yellow-100 focus:border-yellow-500 placeholder-yellow-500/30' 
-                    : 'bg-gray-800 border border-gray-700 text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-500'}
+                    : inputMode === 'direct'
+                      ? 'bg-gray-800 border border-green-700/50 text-green-100 focus:ring-2 focus:ring-green-500 focus:border-transparent placeholder-gray-500'
+                      : 'bg-gray-800 border border-gray-700 text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-500'
+                  }
                 `}
                 placeholder={
                     !!backendError
@@ -411,7 +459,9 @@ const App: React.FC = () => {
                                ? "Command running. Type input here (e.g., passwords, yes/no)..."
                                : !isConnected 
                                   ? "Connect to server to run commands..." 
-                                  : `Describe a task for ${activeProfile.host}...`
+                                  : inputMode === 'direct'
+                                    ? `Enter Linux command for ${activeProfile.host}...`
+                                    : `Describe a task for ${activeProfile.host}...`
                 }
               />
               
@@ -420,7 +470,11 @@ const App: React.FC = () => {
                 disabled={!input.trim() || isThinking || (!isConnected && !isExecuting) || !!backendError}
                 className={`
                   absolute inset-y-1 right-1 p-2 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed
-                  ${isExecuting ? 'text-yellow-500 hover:bg-yellow-900/30' : 'text-gray-400 hover:text-white hover:bg-gray-700'}
+                  ${isExecuting
+                    ? 'text-yellow-500 hover:bg-yellow-900/30'
+                    : inputMode === 'direct'
+                      ? 'text-green-500 hover:bg-green-900/30'
+                      : 'text-gray-400 hover:text-white hover:bg-gray-700'}
                 `}
               >
                 <Send size={18} />
