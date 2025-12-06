@@ -15,6 +15,7 @@ const App: React.FC = () => {
   const [profiles, setProfiles] = useState<SSHProfile[]>([]);
   const [activeProfileId, setActiveProfileId] = useState<string | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>(ConnectionStatus.Disconnected);
+  const [detectedDistro, setDetectedDistro] = useState<string | null>(null);
   
   const [terminalEntries, setTerminalEntries] = useState<TerminalEntry[]>([]);
   const [input, setInput] = useState('');
@@ -64,9 +65,15 @@ const App: React.FC = () => {
         setConnectionStatus(ConnectionStatus.Connected);
       } else if (status === 'disconnected') {
         setConnectionStatus(ConnectionStatus.Disconnected);
+        setDetectedDistro(null);
         addLog('info', 'Disconnected.');
         setIsExecuting(false);
       }
+    };
+
+    const onDistro = (distro: string) => {
+      setDetectedDistro(distro);
+      addLog('info', `Detected OS: ${distro}`);
     };
 
     const onError = (msg: string) => {
@@ -105,6 +112,7 @@ const App: React.FC = () => {
     };
 
     socket.on('ssh:status', onStatus);
+    socket.on('ssh:distro', onDistro);
     socket.on('ssh:error', onError);
     socket.on('ssh:data', onData);
     socket.on('ssh:finished', onFinished);
@@ -118,6 +126,7 @@ const App: React.FC = () => {
 
     return () => {
       socket.off('ssh:status', onStatus);
+      socket.off('ssh:distro', onDistro);
       socket.off('ssh:error', onError);
       socket.off('ssh:data', onData);
       socket.off('ssh:finished', onFinished);
@@ -198,6 +207,7 @@ const App: React.FC = () => {
   const handleDisconnect = () => {
     socket.emit('ssh:disconnect');
     setConnectionStatus(ConnectionStatus.Disconnected);
+    setDetectedDistro(null);
     setPendingCommand(null);
     setInput('');
     setIsExecuting(false);
@@ -242,7 +252,7 @@ const App: React.FC = () => {
     setPendingCommand(null);
 
     try {
-      const result = await generateLinuxCommand(input, profile.distro);
+      const result = await generateLinuxCommand(input, detectedDistro || 'Linux');
       setPendingCommand(result);
     } catch (error) {
       addLog('error', 'Command generation failed.');
@@ -323,9 +333,17 @@ const App: React.FC = () => {
              </div>
              
              {activeProfile && (
-                <div className="flex items-center gap-2 text-xs text-gray-500">
-                    <Link size={12}/>
-                    {activeProfile.username}@{activeProfile.host}
+                <div className="flex items-center gap-3 text-xs text-gray-500">
+                    <div className="flex items-center gap-1">
+                      <Link size={12}/>
+                      {activeProfile.username}@{activeProfile.host}
+                    </div>
+                    {detectedDistro && (
+                      <div className="flex items-center gap-1 text-blue-400 bg-blue-900/20 px-2 py-0.5 rounded border border-blue-900/30">
+                        <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse"></span>
+                        {detectedDistro}
+                      </div>
+                    )}
                 </div>
              )}
         </div>

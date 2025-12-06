@@ -1,8 +1,4 @@
-export enum LinuxDistro {
-  Ubuntu22 = 'Ubuntu 22.04 LTS',
-  Ubuntu24 = 'Ubuntu 24.04 LTS',
-  AlmaLinux9 = 'AlmaLinux 9',
-}
+export type LinuxDistro = string;
 
 export enum ConnectionStatus {
   Disconnected = 'disconnected',
@@ -18,7 +14,7 @@ export interface SSHProfile {
   username: string;
   privateKey: string;
   passphrase?: string;
-  distro: LinuxDistro;
+  // distro field is removed as it is now auto-detected
 }
 
 export interface TerminalEntry {
