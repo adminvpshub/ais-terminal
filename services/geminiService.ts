@@ -10,7 +10,7 @@ const ai = new GoogleGenAI({ apiKey });
 
 export const generateLinuxCommand = async (
   naturalLanguage: string,
-  distro: LinuxDistro
+  distro: string
 ): Promise<CommandGenerationResult> => {
   try {
     const prompt = `

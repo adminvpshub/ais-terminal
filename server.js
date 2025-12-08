@@ -77,8 +77,39 @@ io.on('connection', (socket) => {
     const conn = new Client();
     
     conn.on('ready', () => {
-      connections.set(socket.id, { client: conn, stream: null });
-      socket.emit('ssh:status', 'connected');
+      // Auto-detect OS
+      conn.exec('cat /etc/os-release', (err, stream) => {
+        if (err) {
+          // If detection fails (e.g. channel error), proceed with generic
+          connections.set(socket.id, { client: conn, stream: null, distro: 'Linux' });
+          socket.emit('ssh:distro', 'Linux');
+          socket.emit('ssh:status', 'connected');
+          return;
+        }
+
+        let output = '';
+        stream.on('data', (data) => {
+          output += data.toString();
+        }).on('close', () => {
+          let distro = 'Linux';
+          // Try to parse PRETTY_NAME="Ubuntu 22.04 LTS"
+          const prettyMatch = output.match(/^PRETTY_NAME="([^"]+)"/m);
+          if (prettyMatch && prettyMatch[1]) {
+            distro = prettyMatch[1];
+          } else {
+             // Fallback to ID and VERSION
+             const nameMatch = output.match(/^NAME="([^"]+)"/m);
+             if (nameMatch && nameMatch[1]) {
+               distro = nameMatch[1];
+             }
+          }
+
+          console.log(`Detected OS for ${socket.id}: ${distro}`);
+          connections.set(socket.id, { client: conn, stream: null, distro });
+          socket.emit('ssh:distro', distro);
+          socket.emit('ssh:status', 'connected');
+        });
+      });
     }).on('error', (err) => {
       console.error('SSH Error:', err);
       socket.emit('ssh:error', err.message);
