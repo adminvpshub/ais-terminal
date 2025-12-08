@@ -21,6 +21,10 @@ const io = new Server(httpServer, {
 
 const PORT = 3001;
 const PROFILES_FILE = path.resolve(__dirname, 'ssh_profiles.json');
+const SESSIONS_DIR = path.resolve(__dirname, 'sessions');
+
+// Ensure sessions directory exists
+fs.mkdir(SESSIONS_DIR, { recursive: true }).catch(err => console.error("Failed to create sessions dir", err));
 
 app.use(cors());
 app.use(express.json());
@@ -135,13 +139,33 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('disconnect', () => {
+  socket.on('session:update_queue', async (queue) => {
+    try {
+      const filePath = path.join(SESSIONS_DIR, `session_${socket.id}.json`);
+      await fs.writeFile(filePath, JSON.stringify(queue, null, 2));
+    } catch (err) {
+      console.error('Failed to save session queue:', err);
+    }
+  });
+
+  const cleanup = async () => {
     const session = connections.get(socket.id);
     if (session) {
       session.client.end();
       connections.delete(socket.id);
     }
-  });
+
+    // Clean up session file
+    try {
+       const filePath = path.join(SESSIONS_DIR, `session_${socket.id}.json`);
+       await fs.unlink(filePath);
+    } catch (e) {
+      // ignore if missing
+    }
+  };
+
+  socket.on('ssh:disconnect', cleanup);
+  socket.on('disconnect', cleanup);
 });
 
 // Listen on 0.0.0.0 to allow access from other interfaces (required for some setups)

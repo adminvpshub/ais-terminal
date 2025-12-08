@@ -28,8 +28,22 @@ export interface TerminalEntry {
   timestamp: number;
 }
 
-export interface CommandGenerationResult {
+export enum CommandStatus {
+  Pending = 'pending',
+  Running = 'running',
+  Success = 'success',
+  Error = 'error',
+  Skipped = 'skipped',
+}
+
+export interface CommandStep {
+  id: string;
   command: string;
   explanation: string;
   dangerous: boolean;
+  status: CommandStatus;
+}
+
+export interface CommandGenerationResult {
+  steps: CommandStep[];
 }
