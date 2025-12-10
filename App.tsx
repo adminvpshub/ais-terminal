@@ -609,16 +609,17 @@ const App: React.FC = () => {
                 <div className="flex justify-end mb-2">
                 <div className="bg-gray-800 p-1 rounded-lg flex text-xs font-medium border border-gray-700">
                     <button
-                    onClick={() => setInputMode('ai')}
-                    disabled={isInteractive}
-                    className={`px-3 py-1 rounded flex items-center gap-2 transition-colors ${inputMode === 'ai' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-gray-200'} ${isInteractive ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    onClick={() => {
+                        setInputMode('ai');
+                        setIsInteractive(false);
+                    }}
+                    className={`px-3 py-1 rounded flex items-center gap-2 transition-colors ${inputMode === 'ai' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-gray-200'}`}
                     >
                     <Sparkles size={14} /> AI
                     </button>
                     <button
                     onClick={() => setInputMode('direct')}
-                    disabled={isInteractive}
-                    className={`px-3 py-1 rounded flex items-center gap-2 transition-colors ${inputMode === 'direct' ? 'bg-green-600 text-white' : 'text-gray-400 hover:text-gray-200'} ${isInteractive ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    className={`px-3 py-1 rounded flex items-center gap-2 transition-colors ${inputMode === 'direct' ? 'bg-green-600 text-white' : 'text-gray-400 hover:text-gray-200'}`}
                     >
                     <TerminalIcon size={14} /> Direct
                     </button>
