@@ -17,6 +17,7 @@ const App: React.FC = () => {
   const [activeProfileId, setActiveProfileId] = useState<string | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>(ConnectionStatus.Disconnected);
   const [detectedDistro, setDetectedDistro] = useState<string | null>(null);
+  const [cwd, setCwd] = useState<string | null>(null);
   
   const [terminalEntries, setTerminalEntries] = useState<TerminalEntry[]>([]);
   const [input, setInput] = useState('');
@@ -79,6 +80,7 @@ const App: React.FC = () => {
       } else if (status === 'disconnected') {
         setConnectionStatus(ConnectionStatus.Disconnected);
         setDetectedDistro(null);
+        setCwd(null);
         addLog('info', 'Disconnected.');
         // Clear state on disconnect
         setCommandQueue([]);
@@ -136,6 +138,7 @@ const App: React.FC = () => {
 
     socket.on('ssh:status', onStatus);
     socket.on('ssh:distro', onDistro);
+    socket.on('ssh:cwd', (path) => setCwd(path));
     socket.on('ssh:error', onError);
     socket.on('ssh:data', onData);
     socket.on('ssh:finished', onFinished);
@@ -150,6 +153,7 @@ const App: React.FC = () => {
     return () => {
       socket.off('ssh:status', onStatus);
       socket.off('ssh:distro', onDistro);
+      socket.off('ssh:cwd');
       socket.off('ssh:error', onError);
       socket.off('ssh:data', onData);
       socket.off('ssh:finished', onFinished);
@@ -352,6 +356,7 @@ const App: React.FC = () => {
     setCommandQueue([]);
     setExecutionState('idle');
     setDetectedDistro(null);
+    setCwd(null);
     setInput('');
     setIsInteractive(false);
   };
@@ -487,6 +492,11 @@ const App: React.FC = () => {
                       <div className="flex items-center gap-1 text-blue-400 bg-blue-900/20 px-2 py-0.5 rounded border border-blue-900/30">
                         <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse"></span>
                         {detectedDistro}
+                      </div>
+                    )}
+                    {cwd && (
+                      <div className="flex items-center gap-1 text-gray-400 text-xs font-mono ml-2 border-l border-gray-700 pl-2">
+                          <span className="text-yellow-500">~/</span> {cwd}
                       </div>
                     )}
                 </div>
