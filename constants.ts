@@ -1,6 +1,6 @@
 import { LinuxDistro } from "./types";
 
-export const DEFAULT_DISTRO = LinuxDistro.Ubuntu22;
+export const DEFAULT_DISTRO: LinuxDistro = "Ubuntu 22.04 LTS";
 
 export const SAMPLE_PROMPTS = [
   "Check disk usage in human readable format",

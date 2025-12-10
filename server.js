@@ -21,6 +21,10 @@ const io = new Server(httpServer, {
 
 const PORT = 3001;
 const PROFILES_FILE = path.resolve(__dirname, 'ssh_profiles.json');
+const SESSIONS_DIR = path.resolve(__dirname, 'sessions');
+
+// Ensure sessions directory exists
+fs.mkdir(SESSIONS_DIR, { recursive: true }).catch(err => console.error("Failed to create sessions dir", err));
 
 app.use(cors());
 app.use(express.json());
@@ -73,8 +77,39 @@ io.on('connection', (socket) => {
     const conn = new Client();
     
     conn.on('ready', () => {
-      connections.set(socket.id, { client: conn, stream: null });
-      socket.emit('ssh:status', 'connected');
+      // Auto-detect OS
+      conn.exec('cat /etc/os-release', (err, stream) => {
+        if (err) {
+          // If detection fails (e.g. channel error), proceed with generic
+          connections.set(socket.id, { client: conn, stream: null, distro: 'Linux' });
+          socket.emit('ssh:distro', 'Linux');
+          socket.emit('ssh:status', 'connected');
+          return;
+        }
+
+        let output = '';
+        stream.on('data', (data) => {
+          output += data.toString();
+        }).on('close', () => {
+          let distro = 'Linux';
+          // Try to parse PRETTY_NAME="Ubuntu 22.04 LTS"
+          const prettyMatch = output.match(/^PRETTY_NAME="([^"]+)"/m);
+          if (prettyMatch && prettyMatch[1]) {
+            distro = prettyMatch[1];
+          } else {
+             // Fallback to ID and VERSION
+             const nameMatch = output.match(/^NAME="([^"]+)"/m);
+             if (nameMatch && nameMatch[1]) {
+               distro = nameMatch[1];
+             }
+          }
+
+          console.log(`Detected OS for ${socket.id}: ${distro}`);
+          connections.set(socket.id, { client: conn, stream: null, distro });
+          socket.emit('ssh:distro', distro);
+          socket.emit('ssh:status', 'connected');
+        });
+      });
     }).on('error', (err) => {
       console.error('SSH Error:', err);
       socket.emit('ssh:error', err.message);
@@ -135,13 +170,33 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('disconnect', () => {
+  socket.on('session:update_queue', async (queue) => {
+    try {
+      const filePath = path.join(SESSIONS_DIR, `session_${socket.id}.json`);
+      await fs.writeFile(filePath, JSON.stringify(queue, null, 2));
+    } catch (err) {
+      console.error('Failed to save session queue:', err);
+    }
+  });
+
+  const cleanup = async () => {
     const session = connections.get(socket.id);
     if (session) {
       session.client.end();
       connections.delete(socket.id);
     }
-  });
+
+    // Clean up session file
+    try {
+       const filePath = path.join(SESSIONS_DIR, `session_${socket.id}.json`);
+       await fs.unlink(filePath);
+    } catch (e) {
+      // ignore if missing
+    }
+  };
+
+  socket.on('ssh:disconnect', cleanup);
+  socket.on('disconnect', cleanup);
 });
 
 // Listen on 0.0.0.0 to allow access from other interfaces (required for some setups)

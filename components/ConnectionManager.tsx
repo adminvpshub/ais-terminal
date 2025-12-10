@@ -33,7 +33,6 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
   const [username, setUsername] = useState('root');
   const [privateKey, setPrivateKey] = useState('');
   const [passphrase, setPassphrase] = useState('');
-  const [distro, setDistro] = useState<LinuxDistro>(LinuxDistro.Ubuntu22);
 
   const resetForm = () => {
     setName('');
@@ -41,7 +40,6 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
     setUsername('root');
     setPrivateKey('');
     setPassphrase('');
-    setDistro(LinuxDistro.Ubuntu22);
     setIsEditing(false);
   };
 
@@ -55,7 +53,6 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
       username,
       privateKey,
       passphrase: passphrase || undefined,
-      distro,
     };
     
     onSaveProfile(newProfile);
@@ -136,18 +133,6 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
                 </div>
             </div>
 
-            <div>
-              <label className="block text-xs font-medium text-gray-400 mb-1">OS Distribution</label>
-              <select 
-                value={distro}
-                onChange={(e) => setDistro(e.target.value as LinuxDistro)}
-                className="w-full bg-gray-900 border border-gray-600 rounded px-2 py-1 text-sm text-white focus:ring-1 focus:ring-blue-500 outline-none"
-              >
-                {Object.values(LinuxDistro).map((d) => (
-                  <option key={d} value={d}>{d}</option>
-                ))}
-              </select>
-            </div>
 
             <div>
               <div className="flex justify-between items-center mb-1">
@@ -209,10 +194,6 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
                   </div>
                   <div className="text-xs text-gray-500 font-mono mt-0.5 truncate">
                     {profile.username}@{profile.host}
-                  </div>
-                  <div className="text-xs text-gray-600 mt-1 inline-flex items-center gap-1 bg-gray-900/50 px-1.5 py-0.5 rounded">
-                      <span className="w-1.5 h-1.5 rounded-full bg-gray-500"></span>
-                      {profile.distro}
                   </div>
                 </div>
                 
