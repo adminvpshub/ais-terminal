@@ -627,7 +627,7 @@ const App: React.FC = () => {
             )}
 
             {/* Input Area */}
-            <div className={`relative transition-all duration-200 ${commandQueue.length > 0 ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
+            <div className={`relative transition-all duration-200 ${isThinking ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
               <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
                 {isThinking ? (
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
