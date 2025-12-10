@@ -232,7 +232,7 @@ const App: React.FC = () => {
        if (profile) {
            try {
              // Use the accumulated output 'currentOutput'
-             const fix = await generateCommandFix(activeStep.command, currentOutput, profile.distro);
+             const fix = await generateCommandFix(activeStep.command, currentOutput, detectedDistro || 'Linux');
              setSuggestedFix(fix);
            } catch (e) {
              addLog('error', 'Failed to generate fix suggestion.');
