@@ -474,7 +474,7 @@ const App: React.FC = () => {
         <div className="h-12 border-b border-gray-800 flex items-center px-4 justify-between bg-gray-900 flex-shrink-0">
              <div className="flex items-center gap-2 text-gray-200 font-semibold">
                 <Cpu size={18} className="text-blue-500"/> 
-                TermiGen AI
+                SSH Engine
              </div>
              
              {activeProfile && (
