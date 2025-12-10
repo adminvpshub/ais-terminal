@@ -352,7 +352,6 @@ const App: React.FC = () => {
     setCommandQueue([]);
     setExecutionState('idle');
     setDetectedDistro(null);
-    setPendingCommand(null);
     setInput('');
     setIsInteractive(false);
   };
@@ -397,7 +396,6 @@ const App: React.FC = () => {
     try {
       const result = await generateLinuxCommand(input, detectedDistro || 'Linux');
       setCommandQueue(result.steps);
-      setPendingCommand(result);
     } catch (error) {
       addLog('error', 'Command generation failed.');
     } finally {
