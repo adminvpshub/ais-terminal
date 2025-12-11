@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { SSHProfile, LinuxDistro, ConnectionStatus } from '../types';
 import { Button } from './Button';
-import { Server, Plus, Trash2, Download, Save, Eye, EyeOff, Plug, ChevronRight } from 'lucide-react';
+import { Server, Plus, Trash2, Download, Save, Eye, EyeOff, Plug, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 
 interface ConnectionManagerProps {
   profiles: SSHProfile[];
@@ -26,6 +26,7 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [showKey, setShowKey] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
   
   // Form State
   const [name, setName] = useState('');
@@ -73,31 +74,46 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
   const isConnecting = connectionStatus === ConnectionStatus.Connecting;
 
   return (
-    <div className="flex flex-col h-full bg-gray-800 border-r border-gray-700 w-80 flex-shrink-0">
-      <div className="p-4 border-b border-gray-700 flex justify-between items-center bg-gray-900/50">
-        <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-          <Server size={18} /> SSH Manager
-        </h2>
-        <div className="flex gap-1">
-          <button 
-            onClick={handleExport}
-            className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-700 rounded transition-colors"
-            title="Export Profiles"
+    <div className={`flex flex-col h-full bg-gray-800 border-r border-gray-700 flex-shrink-0 transition-all duration-300 ${isCollapsed ? 'w-16' : 'w-80'}`}>
+      <div className={`p-4 border-b border-gray-700 flex items-center bg-gray-900/50 ${isCollapsed ? 'justify-center' : 'justify-between'}`}>
+        {!isCollapsed && (
+          <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+            <Server size={18} /> SSH Manager
+          </h2>
+        )}
+
+        <div className="flex gap-1 items-center">
+          {!isCollapsed && (
+            <>
+              <button
+                onClick={handleExport}
+                className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-700 rounded transition-colors"
+                title="Export Profiles"
+              >
+                <Download size={16} />
+              </button>
+              <button
+                onClick={() => setIsEditing(true)}
+                className="p-1.5 text-blue-400 hover:text-blue-300 hover:bg-blue-900/30 rounded transition-colors"
+                title="Add New Connection"
+              >
+                <Plus size={16} />
+              </button>
+            </>
+          )}
+
+          <button
+             onClick={() => setIsCollapsed(!isCollapsed)}
+             className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-700 rounded transition-colors"
+             title={isCollapsed ? "Expand" : "Collapse"}
           >
-            <Download size={16} />
-          </button>
-          <button 
-            onClick={() => setIsEditing(true)}
-            className="p-1.5 text-blue-400 hover:text-blue-300 hover:bg-blue-900/30 rounded transition-colors"
-            title="Add New Connection"
-          >
-            <Plus size={16} />
+             {isCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
           </button>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-2 space-y-2">
-        {isEditing && (
+      <div className="flex-1 overflow-y-auto p-2 space-y-2 scrollbar-thin">
+        {!isCollapsed && isEditing && (
           <div className="bg-gray-700/50 p-3 rounded-md border border-gray-600 space-y-3 animate-in fade-in slide-in-from-top-2 shadow-lg relative z-10">
              <div>
               <label className="block text-xs font-medium text-gray-400 mb-1">Profile Name</label>
@@ -171,6 +187,28 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
 
         {profiles.map(profile => {
           const isActive = activeProfileId === profile.id;
+
+          if (isCollapsed) {
+              return (
+                <div
+                    key={profile.id}
+                    onClick={() => onSelectProfile(profile.id)}
+                    title={`${profile.name} (${profile.username}@${profile.host})`}
+                    className={`
+                        w-10 h-10 mx-auto rounded-lg flex items-center justify-center cursor-pointer transition-all duration-200 relative
+                        ${isActive
+                            ? 'bg-blue-900/30 text-blue-400 ring-1 ring-blue-500/50'
+                            : 'text-gray-400 hover:bg-gray-700 hover:text-gray-200'}
+                    `}
+                >
+                    <Server size={20} />
+                    {isActive && isConnected && (
+                        <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-gray-800 animate-pulse"></span>
+                    )}
+                </div>
+              );
+          }
+
           return (
             <div 
               key={profile.id}
@@ -237,7 +275,11 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
         
         {profiles.length === 0 && !isEditing && (
             <div className="text-center text-gray-500 text-sm py-8 px-4">
-                No profiles.<br/>Click "+" to add one.
+                {isCollapsed ? (
+                    <span title="No profiles" className="text-gray-600">-</span>
+                ) : (
+                    <>No profiles.<br/>Click "+" to add one.</>
+                )}
             </div>
         )}
       </div>
