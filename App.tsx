@@ -27,6 +27,7 @@ const App: React.FC = () => {
   const [commandQueue, setCommandQueue] = useState<CommandStep[]>([]);
   const [activeStepId, setActiveStepId] = useState<string | null>(null);
   const [executionState, setExecutionState] = useState<'idle' | 'running' | 'paused' | 'error'>('idle');
+  const [runMode, setRunMode] = useState<'all' | 'single'>('all'); // Track execution mode
   const [suggestedFix, setSuggestedFix] = useState<CommandStep | null>(null);
   const [currentOutput, setCurrentOutput] = useState(''); // Accumulate output for fix generation
 
@@ -168,6 +169,22 @@ const App: React.FC = () => {
        updateStepStatus(activeStep.id, CommandStatus.Success);
        setCurrentOutput(''); // Reset output buffer
 
+       // If we are in "Run All" mode (implied if not paused), run next
+       // But checking state here is tricky because React batching.
+       // We'll rely on a small timeout or function call to proceed.
+       // Simple logic: If we have next step, and we haven't been told to pause (via user interaction which would set state), continue.
+       // However, we need to know if we should "Run All" or just "Step".
+       // For this MVP, let's assume "Run All" is the default behavior once started, unless paused.
+
+       // Check if we should continue running (Run All mode) or stop (Single mode)
+       if (runMode === 'single') {
+           setExecutionState('idle');
+           addLog('info', 'Step completed.');
+           return;
+       }
+
+       // We need to check if user clicked "Pause". State updates might be pending.
+       // Let's rely on a state checker in the next tick.
        setTimeout(() => {
           setExecutionState(prevState => {
              if (prevState === 'paused') return 'paused'; // User paused manually
@@ -225,11 +242,20 @@ const App: React.FC = () => {
   };
 
   const handleStartQueue = () => {
+    setRunMode('all');
     // Find first pending step
     const firstPending = commandQueue.find(s => s.status === CommandStatus.Pending || s.status === CommandStatus.Error);
     if (firstPending) {
         executeStep(firstPending.id);
     }
+  };
+
+  const handleRunSingleStep = (stepId: string) => {
+    // Only allow if not currently executing
+    if (executionState === 'running') return;
+
+    setRunMode('single');
+    executeStep(stepId);
   };
 
   const handlePause = () => {
@@ -447,6 +473,8 @@ const App: React.FC = () => {
                 <TaskSidebar
                     steps={commandQueue}
                     activeStepId={activeStepId}
+                    onRunStep={handleRunSingleStep}
+                    isExecuting={executionState === 'running'}
                 />
             )}
         </div>
