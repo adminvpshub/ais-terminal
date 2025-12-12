@@ -112,8 +112,13 @@ io.on('connection', (socket) => {
       });
     }).on('error', (err) => {
       console.error('SSH Error:', err);
-      socket.emit('ssh:error', err.message);
+      if (err.message && (err.message.includes('ECONNRESET') || err.message.includes('EPIPE'))) {
+        socket.emit('ssh:error', 'Connection lost (Network reset or pipe error). Please reconnect.');
+      } else {
+        socket.emit('ssh:error', err.message);
+      }
     }).on('end', () => {
+      console.log(`SSH Connection ended for ${socket.id}`);
       socket.emit('ssh:status', 'disconnected');
       connections.delete(socket.id);
     }).connect({
@@ -122,6 +127,8 @@ io.on('connection', (socket) => {
       username,
       privateKey,
       passphrase: passphrase || undefined, // Handle empty string vs undefined
+      keepaliveInterval: 10000, // 10 seconds
+      keepaliveCountMax: 3, // disconnect after 3 failed keepalives
       algorithms: {
         serverHostKey: ['ssh-rsa', 'ssh-dss', 'ecdsa-sha2-nistp256', 'ssh-ed25519'],
       }

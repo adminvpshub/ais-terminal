@@ -155,7 +155,7 @@ const App: React.FC = () => {
       socket.off('ssh:finished', onFinished);
       socket.off('connect_error');
     };
-  }, [activeProfileId, profiles, backendError, executionState]); // Added executionState dep to ensure onData captures correctly
+  }, [activeProfileId, profiles, backendError, executionState, isInteractive, detectedDistro]); // Added executionState, isInteractive, and detectedDistro to ensure listeners capture correct state
 
   // When profile changes, disconnect current session
   useEffect(() => {
