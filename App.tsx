@@ -27,7 +27,6 @@ const App: React.FC = () => {
   const [executionState, setExecutionState] = useState<'idle' | 'running' | 'paused' | 'error'>('idle');
   const [suggestedFix, setSuggestedFix] = useState<CommandStep | null>(null);
   const [currentOutput, setCurrentOutput] = useState(''); // Accumulate output for fix generation
-  const [runMode, setRunMode] = useState<'queue' | 'single'>('queue');
 
   const [isThinking, setIsThinking] = useState(false);
   const [isInteractive, setIsInteractive] = useState(false); // Indicates if user is manually typing in "Direct" mode or handling interactive input
@@ -37,16 +36,11 @@ const App: React.FC = () => {
   // --- Refs ---
   const inputRef = useRef<HTMLInputElement>(null);
   const queueRef = useRef<CommandStep[]>([]); // To access latest queue in callbacks
-  const runModeRef = useRef<'queue' | 'single'>('queue');
 
   // Sync ref with state
   useEffect(() => {
     queueRef.current = commandQueue;
   }, [commandQueue]);
-
-  useEffect(() => {
-    runModeRef.current = runMode;
-  }, [runMode]);
 
   // --- Effects ---
   useEffect(() => {
@@ -198,12 +192,6 @@ const App: React.FC = () => {
        updateStepStatus(activeStep.id, CommandStatus.Success);
        setCurrentOutput(''); // Reset output buffer
 
-       if (runModeRef.current === 'single') {
-         setExecutionState('idle');
-         addLog('info', 'Command completed.');
-         return;
-       }
-
        // If we are in "Run All" mode (implied if not paused), run next
        // But checking state here is tricky because React batching.
        // We'll rely on a small timeout or function call to proceed.
@@ -273,18 +261,12 @@ const App: React.FC = () => {
   };
 
   const handleStartQueue = () => {
-    setRunMode('queue');
     // Find first pending step
     const firstPending = commandQueue.find(s => s.status === CommandStatus.Pending || s.status === CommandStatus.Error);
     if (firstPending) {
         executeStep(firstPending.id);
     }
   };
-
-  const handleRunSingleStep = (stepId: string) => {
-    setRunMode('single');
-    executeStep(stepId);
-  }
 
   const handlePause = () => {
     setExecutionState('paused');
@@ -543,8 +525,6 @@ const App: React.FC = () => {
                 <TaskSidebar
                     steps={commandQueue}
                     activeStepId={activeStepId}
-                    onRunStep={handleRunSingleStep}
-                    isExecuting={executionState === 'running'}
                 />
             )}
         </div>

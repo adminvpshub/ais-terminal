@@ -75,38 +75,41 @@ export const TaskSidebar: React.FC<TaskSidebarProps> = ({
                              <p className={`text-xs font-mono mb-1 truncate ${isActive ? 'text-blue-300' : 'text-gray-400'}`}>
                                 {step.command}
                             </p>
-
-                            {onRunStep && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  onRunStep(step.id);
-                                }}
-                                disabled={isExecuting}
-                                className={`
-                                  flex-shrink-0 p-1 rounded transition-colors
-                                  ${isExecuting
-                                    ? 'text-gray-600 cursor-not-allowed'
-                                    : 'text-blue-400 hover:bg-blue-900/30 hover:text-blue-300'
-                                  }
-                                `}
-                                title="Run this command"
-                              >
-                                <Play size={12} fill="currentColor" />
-                              </button>
-                            )}
                         </div>
 
                         <p className="text-xs text-gray-500 leading-relaxed">
                             {step.explanation}
                         </p>
 
-                        {step.dangerous && (
-                            <div className="mt-2 flex items-center gap-1 text-[10px] text-orange-400 bg-orange-950/30 w-fit px-1.5 py-0.5 rounded border border-orange-900/50">
-                                <AlertCircle size={10} />
-                                <span>High Risk</span>
-                            </div>
-                        )}
+                        <div className="mt-2 flex items-center justify-between gap-2">
+                          {step.dangerous ? (
+                              <div className="flex items-center gap-1 text-[10px] text-orange-400 bg-orange-950/30 w-fit px-1.5 py-0.5 rounded border border-orange-900/50">
+                                  <AlertCircle size={10} />
+                                  <span>High Risk</span>
+                              </div>
+                          ) : <div></div>}
+
+                          {onRunStep && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onRunStep(step.id);
+                              }}
+                              disabled={isExecuting}
+                              className={`
+                                flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium border transition-colors
+                                ${isExecuting
+                                  ? 'bg-gray-800 text-gray-600 border-gray-700 cursor-not-allowed'
+                                  : 'bg-blue-900/20 text-blue-300 border-blue-800 hover:bg-blue-800/40 hover:text-blue-200'
+                                }
+                              `}
+                              title="Run this command"
+                            >
+                              <Play size={8} fill="currentColor" />
+                              Run
+                            </button>
+                          )}
+                        </div>
                     </div>
                 </div>
             </div>
