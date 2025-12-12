@@ -11,6 +11,7 @@ node_modules
 dist
 dist-ssr
 *.local
+ssh_profiles.json
 
 # Editor directories and files
 .vscode/*
