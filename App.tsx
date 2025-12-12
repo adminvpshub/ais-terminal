@@ -23,6 +23,9 @@ const App: React.FC = () => {
   const [sessionLog, setSessionLog] = useState('');
   const [input, setInput] = useState('');
 
+  // New State for Prompts visibility
+  const [showPrompts, setShowPrompts] = useState(false);
+
   // New State for Command Staging and Execution
   const [commandQueue, setCommandQueue] = useState<CommandStep[]>([]);
   const [activeStepId, setActiveStepId] = useState<string | null>(null);
@@ -76,6 +79,7 @@ const App: React.FC = () => {
       if (status === 'connected') {
         const profile = profiles.find(p => p.id === activeProfileId);
         setConnectionStatus(ConnectionStatus.Connected);
+        setShowPrompts(true); // Reset prompts visibility on new connection
       } else if (status === 'disconnected') {
         setConnectionStatus(ConnectionStatus.Disconnected);
         setDetectedDistro(null);
@@ -84,6 +88,7 @@ const App: React.FC = () => {
         setActiveStepId(null);
         setExecutionState('idle');
         setSuggestedFix(null);
+        setShowPrompts(false);
       }
     };
 
@@ -312,6 +317,7 @@ const App: React.FC = () => {
     // Note: With the new Xterm, users can type directly into the terminal.
     // This input box is now mostly for AI commands or quick "macro" sending.
     if (inputMode === 'direct') {
+      setShowPrompts(false); // Hide prompts on first interaction
       runDirectCommand(input);
       return;
     }
@@ -325,6 +331,7 @@ const App: React.FC = () => {
     setIsThinking(true);
     setCommandQueue([]);
     setSuggestedFix(null);
+    setShowPrompts(false); // Hide prompts on first interaction
 
     try {
       const result = await generateLinuxCommand(input, detectedDistro || 'Linux');
@@ -606,7 +613,7 @@ const App: React.FC = () => {
             </div>
 
             {/* Quick Prompts */}
-            {!input && commandQueue.length === 0 && isConnected && !backendError && (
+            {!input && commandQueue.length === 0 && isConnected && !backendError && showPrompts && (
               <div className="flex flex-wrap gap-2 justify-center">
                 {SAMPLE_PROMPTS.map((prompt, i) => (
                   <button
