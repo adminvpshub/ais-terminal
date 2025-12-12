@@ -471,7 +471,7 @@ const App: React.FC = () => {
 
         <div className="flex flex-1 min-h-0 overflow-hidden">
             {/* Terminal Area */}
-            <div className="flex-1 p-4 pb-0 overflow-hidden flex flex-col bg-gray-900 min-h-0">
+            <div className="flex-1 p-4 pb-4 overflow-hidden flex flex-col bg-gray-900 min-h-0">
                 <Terminal socket={socket} />
             </div>
 
@@ -490,43 +490,123 @@ const App: React.FC = () => {
         <div className="p-4 bg-gray-900 border-t border-gray-800 flex-shrink-0 z-20">
           <div className="max-w-4xl mx-auto space-y-4">
             
-            {/* Control Panel for Execution */}
-            {commandQueue.length > 0 && !suggestedFix && (
-                <div className="flex items-center justify-between bg-gray-800/50 p-3 rounded-lg border border-gray-700">
-                    <div className="text-sm text-gray-400">
-                        {executionState === 'running' ? (
-                            <span className="text-blue-400 flex items-center gap-2">
-                                <span className="animate-spin rounded-full h-3 w-3 border-b-2 border-current"></span>
-                                Executing step...
-                            </span>
-                        ) : executionState === 'paused' ? (
-                            <span className="text-yellow-400">Paused</span>
-                        ) : (
-                            <span>Ready to execute {commandQueue.filter(s => s.status === CommandStatus.Pending).length} steps</span>
-                        )}
-                    </div>
+            {/* Control Panel / Input Wrapper */}
+            <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center">
 
-                    <div className="flex gap-2">
-                         {executionState === 'running' ? (
-                             <Button variant="secondary" size="sm" onClick={handlePause}>
-                                 <Pause size={14} className="mr-2"/> Stop
-                             </Button>
-                         ) : (
-                             <>
-                                <Button variant="ghost" size="sm" onClick={handleAbort}>Abort</Button>
-                                <Button variant="primary" size="sm" onClick={handleStartQueue}>
-                                    <Play size={14} className="mr-2"/>
-                                    {executionState === 'paused' ? 'Resume' : 'Run All'}
-                                </Button>
-                             </>
-                         )}
-                    </div>
+                {/* Input Area */}
+                <div className={`relative flex-1 transition-all duration-200 ${isThinking ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
+                  <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                    {isThinking ? (
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                    ) : (
+                        <div className="text-gray-500 font-mono text-lg">{'>'}</div>
+                    )}
+                  </div>
+
+                  <input
+                    ref={inputRef}
+                    type="text"
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            handleInputSubmit();
+                        }
+                    }}
+                    disabled={(!isConnected && inputMode !== 'ai') || !!backendError} // Disable direct input if not connected, but allow AI input
+                    className={`
+                      w-full text-sm rounded-lg pl-10 pr-12 py-3 outline-none shadow-sm transition-colors
+                      disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-800/50
+                      ${inputMode === 'direct'
+                          ? 'bg-gray-800 border border-green-700/50 text-green-100 focus:ring-2 focus:ring-green-500 focus:border-transparent placeholder-gray-500'
+                          : 'bg-gray-800 border border-gray-700 text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-500'
+                      }
+                    `}
+                    placeholder={
+                        !!backendError
+                            ? "Backend server disconnected"
+                            : !activeProfile
+                                ? "Select a profile to start..."
+                                : !isConnected
+                                      ? "Connect to server to run commands..."
+                                      : inputMode === 'direct'
+                                        ? `Send a command to ${activeProfile.host}...`
+                                        : `Describe a task for ${activeProfile.host}...`
+                    }
+                  />
+
+                  <button
+                    onClick={handleInputSubmit}
+                    disabled={!input.trim() || isThinking || (!isConnected && inputMode !== 'ai') || !!backendError}
+                    className={`
+                      absolute inset-y-1 right-1 p-2 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed
+                      ${inputMode === 'direct'
+                          ? 'text-green-500 hover:bg-green-900/30'
+                          : 'text-gray-400 hover:text-white hover:bg-gray-700'}
+                    `}
+                  >
+                    <Send size={18} />
+                  </button>
                 </div>
-            )}
+
+                {/* Execution Controls (Only show if queue active or input mode toggle needed) */}
+                <div className="flex-shrink-0 flex items-center gap-2">
+                    {commandQueue.length > 0 && !suggestedFix ? (
+                        <div className="flex items-center gap-2 bg-gray-800/50 p-1.5 rounded-lg border border-gray-700">
+                             <div className="text-xs text-gray-400 px-2 hidden lg:block">
+                                {executionState === 'running' ? (
+                                    <span className="text-blue-400 flex items-center gap-2">
+                                        <span className="animate-spin rounded-full h-2 w-2 border-b-2 border-current"></span>
+                                        Running
+                                    </span>
+                                ) : executionState === 'paused' ? (
+                                    <span className="text-yellow-400">Paused</span>
+                                ) : (
+                                    <span>{commandQueue.filter(s => s.status === CommandStatus.Pending).length} Ready</span>
+                                )}
+                            </div>
+
+                             {executionState === 'running' ? (
+                                 <Button variant="secondary" size="sm" onClick={handlePause} className="h-9">
+                                     <Pause size={14} className="mr-1"/> Stop
+                                 </Button>
+                             ) : (
+                                 <>
+                                    <Button variant="ghost" size="sm" onClick={handleAbort} className="h-9">Abort</Button>
+                                    <Button variant="primary" size="sm" onClick={handleStartQueue} className="h-9">
+                                        <Play size={14} className="mr-1"/>
+                                        {executionState === 'paused' ? 'Resume' : 'Run All'}
+                                    </Button>
+                                 </>
+                             )}
+                        </div>
+                    ) : (
+                        // Input Mode Toggle
+                         <div className="bg-gray-800 p-1 rounded-lg flex text-xs font-medium border border-gray-700 h-[42px] items-center">
+                            <button
+                            onClick={() => {
+                                setInputMode('ai');
+                            }}
+                            className={`px-3 py-1.5 rounded flex items-center gap-2 transition-colors h-full ${inputMode === 'ai' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-gray-200'}`}
+                            >
+                            <Sparkles size={14} /> AI
+                            </button>
+                            <button
+                            onClick={() => setInputMode('direct')}
+                            className={`px-3 py-1.5 rounded flex items-center gap-2 transition-colors h-full ${inputMode === 'direct' ? 'bg-green-600 text-white' : 'text-gray-400 hover:text-gray-200'}`}
+                            >
+                            <TerminalIcon size={14} /> Direct
+                            </button>
+                        </div>
+                    )}
+                </div>
+
+            </div>
 
             {/* Fix Suggestion Card */}
             {suggestedFix && (
-              <div className="bg-gray-800/90 backdrop-blur-sm border border-red-500/30 rounded-lg p-4 shadow-xl animate-in slide-in-from-bottom-2">
+              <div className="bg-gray-800/90 backdrop-blur-sm border border-red-500/30 rounded-lg p-4 shadow-xl animate-in slide-in-from-bottom-2 mt-2">
                 <div className="flex justify-between items-start mb-2">
                   <h3 className="text-sm font-semibold text-red-400 uppercase tracking-wider flex items-center gap-2">
                     <AlertTriangle size={14}/> Execution Error
@@ -561,88 +641,9 @@ const App: React.FC = () => {
               </div>
             )}
 
-            {/* Input Mode Toggle - Hide during active execution queue unless paused/idle */}
-            {commandQueue.length === 0 && (
-                <div className="flex justify-end mb-2">
-                <div className="bg-gray-800 p-1 rounded-lg flex text-xs font-medium border border-gray-700">
-                    <button
-                    onClick={() => {
-                        setInputMode('ai');
-                    }}
-                    className={`px-3 py-1 rounded flex items-center gap-2 transition-colors ${inputMode === 'ai' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-gray-200'}`}
-                    >
-                    <Sparkles size={14} /> AI
-                    </button>
-                    <button
-                    onClick={() => setInputMode('direct')}
-                    className={`px-3 py-1 rounded flex items-center gap-2 transition-colors ${inputMode === 'direct' ? 'bg-green-600 text-white' : 'text-gray-400 hover:text-gray-200'}`}
-                    >
-                    <TerminalIcon size={14} /> Direct
-                    </button>
-                </div>
-                </div>
-            )}
-
-            {/* Input Area */}
-            <div className={`relative transition-all duration-200 ${isThinking ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
-              <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
-                {isThinking ? (
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
-                ) : (
-                    <div className="text-gray-500 font-mono text-lg">{'>'}</div>
-                )}
-              </div>
-              
-              <input
-                ref={inputRef}
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        handleInputSubmit();
-                    }
-                }}
-                disabled={(!isConnected && inputMode !== 'ai') || !!backendError} // Disable direct input if not connected, but allow AI input
-                className={`
-                  w-full text-sm rounded-lg pl-10 pr-12 py-3 outline-none shadow-sm transition-colors
-                  disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-800/50
-                  ${inputMode === 'direct'
-                      ? 'bg-gray-800 border border-green-700/50 text-green-100 focus:ring-2 focus:ring-green-500 focus:border-transparent placeholder-gray-500'
-                      : 'bg-gray-800 border border-gray-700 text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-500'
-                  }
-                `}
-                placeholder={
-                    !!backendError
-                        ? "Backend server disconnected"
-                        : !activeProfile 
-                            ? "Select a profile to start..." 
-                            : !isConnected
-                                  ? "Connect to server to run commands..." 
-                                  : inputMode === 'direct'
-                                    ? `Send a command to ${activeProfile.host}...`
-                                    : `Describe a task for ${activeProfile.host}...`
-                }
-              />
-              
-              <button 
-                onClick={handleInputSubmit}
-                disabled={!input.trim() || isThinking || (!isConnected && inputMode !== 'ai') || !!backendError}
-                className={`
-                  absolute inset-y-1 right-1 p-2 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed
-                  ${inputMode === 'direct'
-                      ? 'text-green-500 hover:bg-green-900/30'
-                      : 'text-gray-400 hover:text-white hover:bg-gray-700'}
-                `}
-              >
-                <Send size={18} />
-              </button>
-            </div>
-
             {/* Quick Prompts */}
             {!input && commandQueue.length === 0 && isConnected && !backendError && showPrompts && (
-              <div className="flex flex-wrap gap-2 justify-center">
+              <div className="flex flex-wrap gap-2 justify-center mt-2">
                 {SAMPLE_PROMPTS.map((prompt, i) => (
                   <button
                     key={i}
