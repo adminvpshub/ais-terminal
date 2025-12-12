@@ -1,11 +1,13 @@
 import React from 'react';
 import { CommandStep, CommandStatus } from '../types';
-import { CheckCircle, XCircle, Clock, PlayCircle, SkipForward, AlertCircle } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, PlayCircle, SkipForward, AlertCircle, Play } from 'lucide-react';
 
 interface TaskSidebarProps {
   steps: CommandStep[];
   activeStepId: string | null;
   className?: string;
+  onRunStep?: (id: string) => void;
+  isExecuting?: boolean;
 }
 
 const getStatusIcon = (status: CommandStatus) => {
@@ -23,7 +25,13 @@ const getStatusIcon = (status: CommandStatus) => {
   }
 };
 
-export const TaskSidebar: React.FC<TaskSidebarProps> = ({ steps, activeStepId, className = '' }) => {
+export const TaskSidebar: React.FC<TaskSidebarProps> = ({
+  steps,
+  activeStepId,
+  className = '',
+  onRunStep,
+  isExecuting = false
+}) => {
   if (steps.length === 0) return null;
 
   return (
@@ -40,7 +48,6 @@ export const TaskSidebar: React.FC<TaskSidebarProps> = ({ steps, activeStepId, c
       <div className="flex-1 overflow-y-auto p-2 space-y-2">
         {steps.map((step, index) => {
           const isActive = step.id === activeStepId;
-          const isPending = step.status === CommandStatus.Pending;
 
           return (
             <div
@@ -64,7 +71,7 @@ export const TaskSidebar: React.FC<TaskSidebarProps> = ({ steps, activeStepId, c
                     </div>
 
                     <div className="flex-1 min-w-0">
-                        <div className="flex justify-between items-start">
+                        <div className="flex justify-between items-start gap-2">
                              <p className={`text-xs font-mono mb-1 truncate ${isActive ? 'text-blue-300' : 'text-gray-400'}`}>
                                 {step.command}
                             </p>
@@ -74,12 +81,35 @@ export const TaskSidebar: React.FC<TaskSidebarProps> = ({ steps, activeStepId, c
                             {step.explanation}
                         </p>
 
-                        {step.dangerous && (
-                            <div className="mt-2 flex items-center gap-1 text-[10px] text-orange-400 bg-orange-950/30 w-fit px-1.5 py-0.5 rounded border border-orange-900/50">
-                                <AlertCircle size={10} />
-                                <span>High Risk</span>
-                            </div>
-                        )}
+                        <div className="mt-2 flex items-center gap-2">
+                          {onRunStep && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onRunStep(step.id);
+                              }}
+                              disabled={isExecuting}
+                              className={`
+                                flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium border transition-colors
+                                ${isExecuting
+                                  ? 'bg-gray-800 text-gray-600 border-gray-700 cursor-not-allowed'
+                                  : 'bg-blue-900/20 text-blue-300 border-blue-800 hover:bg-blue-800/40 hover:text-blue-200'
+                                }
+                              `}
+                              title="Run this command"
+                            >
+                              <Play size={8} fill="currentColor" />
+                              Run
+                            </button>
+                          )}
+
+                          {step.dangerous && (
+                              <div className="flex items-center gap-1 text-[10px] text-orange-400 bg-orange-950/30 w-fit px-1.5 py-0.5 rounded border border-orange-900/50">
+                                  <AlertCircle size={10} />
+                                  <span>High Risk</span>
+                              </div>
+                          )}
+                        </div>
                     </div>
                 </div>
             </div>
