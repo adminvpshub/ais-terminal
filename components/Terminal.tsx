@@ -1,110 +1,102 @@
 import React, { useEffect, useRef } from 'react';
-import { TerminalEntry, ConnectionStatus } from '../types';
-import { Terminal as TerminalIcon, Wifi, WifiOff, Loader2 } from 'lucide-react';
+import { Terminal as XTerm } from '@xterm/xterm';
+import { FitAddon } from '@xterm/addon-fit';
+import { WebLinksAddon } from '@xterm/addon-web-links';
+import '@xterm/xterm/css/xterm.css';
+import { Socket } from 'socket.io-client';
 
 interface TerminalProps {
-  entries: TerminalEntry[];
-  activeProfileName?: string;
-  status: ConnectionStatus;
+    socket: Socket;
 }
 
-export const Terminal: React.FC<TerminalProps> = ({ entries, activeProfileName, status }) => {
-  const bottomRef = useRef<HTMLDivElement>(null);
+export const Terminal: React.FC<TerminalProps> = ({ socket }) => {
+    const terminalRef = useRef<HTMLDivElement>(null);
+    const xtermRef = useRef<XTerm | null>(null);
+    const fitAddonRef = useRef<FitAddon | null>(null);
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [entries]);
+    useEffect(() => {
+        if (!terminalRef.current) return;
 
-  const getStatusColor = () => {
-    switch (status) {
-      case ConnectionStatus.Connected: return 'text-terminal-green';
-      case ConnectionStatus.Connecting: return 'text-terminal-yellow';
-      case ConnectionStatus.Error: return 'text-terminal-red';
-      default: return 'text-gray-500';
-    }
-  };
+        // Initialize XTerm
+        const term = new XTerm({
+            cursorBlink: true,
+            fontSize: 14,
+            fontFamily: 'Menlo, Monaco, "Courier New", monospace',
+            theme: {
+                background: '#111827', // gray-900 matches app theme
+                foreground: '#ffffff',
+            },
+            convertEol: true, // Treat \n as \r\n
+        });
 
-  const getStatusText = () => {
-    switch (status) {
-      case ConnectionStatus.Connected: return 'Connected';
-      case ConnectionStatus.Connecting: return 'Connecting...';
-      case ConnectionStatus.Error: return 'Connection Failed';
-      default: return 'Disconnected';
-    }
-  };
+        const fitAddon = new FitAddon();
+        const webLinksAddon = new WebLinksAddon();
 
-  const getStatusIcon = () => {
-    switch (status) {
-      case ConnectionStatus.Connected: return <Wifi size={14} />;
-      case ConnectionStatus.Connecting: return <Loader2 size={14} className="animate-spin" />;
-      case ConnectionStatus.Error: return <WifiOff size={14} />;
-      default: return <WifiOff size={14} />;
-    }
-  };
+        term.loadAddon(fitAddon);
+        term.loadAddon(webLinksAddon);
+        term.open(terminalRef.current);
+        fitAddon.fit();
 
-  return (
-    <div className="flex flex-col h-full bg-terminal-bg font-mono text-sm border border-gray-700 rounded-lg overflow-hidden shadow-2xl">
-      {/* Terminal Header */}
-      <div className="flex items-center justify-between px-4 py-2 bg-gray-800 border-b border-gray-700 select-none">
-        <div className="flex items-center gap-2">
-          <div className="flex gap-1.5">
-            <div className="w-3 h-3 rounded-full bg-red-500/80"></div>
-            <div className="w-3 h-3 rounded-full bg-yellow-500/80"></div>
-            <div className="w-3 h-3 rounded-full bg-green-500/80"></div>
-          </div>
-          <span className="ml-3 text-gray-400 text-xs flex items-center gap-2">
-            <TerminalIcon size={12} />
-            {activeProfileName ? `ssh ${activeProfileName}` : 'termigen-client'}
-          </span>
-        </div>
+        xtermRef.current = term;
+        fitAddonRef.current = fitAddon;
+
+        // Handle User Input
+        term.onData((data) => {
+            socket.emit('ssh:input', data);
+        });
+
+        // Handle Incoming Data
+        const onData = (data: string) => {
+            term.write(data);
+        };
         
-        {/* Status Indicator */}
-        <div className={`flex items-center gap-2 text-xs font-medium border px-2 py-0.5 rounded ${getStatusColor()} border-gray-700 bg-gray-900/50`}>
-          {getStatusIcon()}
-          {getStatusText()}
-        </div>
-      </div>
+        const onStatus = (status: string) => {
+             if (status === 'connected') {
+                 term.write('\r\n\x1b[32m✔ Connected\x1b[0m\r\n');
+                 term.focus();
+             } else if (status === 'disconnected') {
+                 term.write('\r\n\x1b[31m✖ Disconnected\x1b[0m\r\n');
+             }
+        };
 
-      {/* Terminal Content */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-2 custom-scrollbar">
-        {entries.length === 0 && (
-          <div className="text-gray-500 italic mt-4 text-center opacity-50">
-            TermiGen SSH Client v1.0.0
-            <br />
-            Select a host profile to connect.
-          </div>
-        )}
+        const onError = (msg: string) => {
+             term.write(`\r\n\x1b[31m✖ Error: ${msg}\x1b[0m\r\n`);
+        };
+
+        socket.on('ssh:data', onData);
+        socket.on('ssh:status', onStatus);
+        socket.on('ssh:error', onError);
+
+        // Handle Resize
+        const handleResize = () => {
+            if (fitAddonRef.current) {
+                fitAddonRef.current.fit();
+                const dims = fitAddonRef.current.proposeDimensions();
+                if (dims && xtermRef.current) {
+                     socket.emit('ssh:resize', { cols: dims.cols, rows: dims.rows });
+                }
+            }
+        };
+
+        window.addEventListener('resize', handleResize);
         
-        {entries.map((entry) => (
-          <div key={entry.id} className="break-words">
-            {entry.type === 'command' && (
-              <div className="flex items-start text-terminal-text mt-3">
-                <span className="mr-2 select-none text-terminal-green font-bold">➜</span>
-                <span className="font-bold">{entry.content}</span>
-              </div>
-            )}
-            
-            {entry.type === 'output' && (
-              <div className="text-gray-300 whitespace-pre-wrap font-mono opacity-90 leading-relaxed">
-                {entry.content}
-              </div>
-            )}
-            
-            {entry.type === 'error' && (
-              <div className="text-terminal-red whitespace-pre-wrap font-mono">
-                {entry.content}
-              </div>
-            )}
-            
-            {entry.type === 'info' && (
-              <div className="text-terminal-dim italic text-xs mt-1 mb-1">
-                {entry.content}
-              </div>
-            )}
-          </div>
-        ))}
-        <div ref={bottomRef} />
-      </div>
-    </div>
-  );
+        // Initial resize after a short delay to ensure container is ready
+        setTimeout(handleResize, 100);
+
+        return () => {
+            socket.off('ssh:data', onData);
+            socket.off('ssh:status', onStatus);
+            socket.off('ssh:error', onError);
+            window.removeEventListener('resize', handleResize);
+            term.dispose();
+        };
+    }, [socket]);
+
+    return (
+        <div
+            ref={terminalRef}
+            className="h-full w-full overflow-hidden bg-gray-900"
+            style={{ minHeight: '100%' }}
+        />
+    );
 };
