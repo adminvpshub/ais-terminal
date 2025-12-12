@@ -1,11 +1,13 @@
 import React from 'react';
 import { CommandStep, CommandStatus } from '../types';
-import { CheckCircle, XCircle, Clock, PlayCircle, SkipForward, AlertCircle } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, PlayCircle, SkipForward, AlertCircle, Play } from 'lucide-react';
 
 interface TaskSidebarProps {
   steps: CommandStep[];
   activeStepId: string | null;
   className?: string;
+  onRunStep?: (id: string) => void;
+  isExecuting?: boolean;
 }
 
 const getStatusIcon = (status: CommandStatus) => {
@@ -23,7 +25,13 @@ const getStatusIcon = (status: CommandStatus) => {
   }
 };
 
-export const TaskSidebar: React.FC<TaskSidebarProps> = ({ steps, activeStepId, className = '' }) => {
+export const TaskSidebar: React.FC<TaskSidebarProps> = ({
+  steps,
+  activeStepId,
+  className = '',
+  onRunStep,
+  isExecuting = false
+}) => {
   if (steps.length === 0) return null;
 
   return (
@@ -40,7 +48,6 @@ export const TaskSidebar: React.FC<TaskSidebarProps> = ({ steps, activeStepId, c
       <div className="flex-1 overflow-y-auto p-2 space-y-2">
         {steps.map((step, index) => {
           const isActive = step.id === activeStepId;
-          const isPending = step.status === CommandStatus.Pending;
 
           return (
             <div
@@ -64,10 +71,30 @@ export const TaskSidebar: React.FC<TaskSidebarProps> = ({ steps, activeStepId, c
                     </div>
 
                     <div className="flex-1 min-w-0">
-                        <div className="flex justify-between items-start">
+                        <div className="flex justify-between items-start gap-2">
                              <p className={`text-xs font-mono mb-1 truncate ${isActive ? 'text-blue-300' : 'text-gray-400'}`}>
                                 {step.command}
                             </p>
+
+                            {onRunStep && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onRunStep(step.id);
+                                }}
+                                disabled={isExecuting}
+                                className={`
+                                  flex-shrink-0 p-1 rounded transition-colors
+                                  ${isExecuting
+                                    ? 'text-gray-600 cursor-not-allowed'
+                                    : 'text-blue-400 hover:bg-blue-900/30 hover:text-blue-300'
+                                  }
+                                `}
+                                title="Run this command"
+                              >
+                                <Play size={12} fill="currentColor" />
+                              </button>
+                            )}
                         </div>
 
                         <p className="text-xs text-gray-500 leading-relaxed">
