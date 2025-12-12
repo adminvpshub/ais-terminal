@@ -81,14 +81,7 @@ export const TaskSidebar: React.FC<TaskSidebarProps> = ({
                             {step.explanation}
                         </p>
 
-                        <div className="mt-2 flex items-center justify-between gap-2">
-                          {step.dangerous ? (
-                              <div className="flex items-center gap-1 text-[10px] text-orange-400 bg-orange-950/30 w-fit px-1.5 py-0.5 rounded border border-orange-900/50">
-                                  <AlertCircle size={10} />
-                                  <span>High Risk</span>
-                              </div>
-                          ) : <div></div>}
-
+                        <div className="mt-2 flex items-center gap-2">
                           {onRunStep && (
                             <button
                               onClick={(e) => {
@@ -108,6 +101,13 @@ export const TaskSidebar: React.FC<TaskSidebarProps> = ({
                               <Play size={8} fill="currentColor" />
                               Run
                             </button>
+                          )}
+
+                          {step.dangerous && (
+                              <div className="flex items-center gap-1 text-[10px] text-orange-400 bg-orange-950/30 w-fit px-1.5 py-0.5 rounded border border-orange-900/50">
+                                  <AlertCircle size={10} />
+                                  <span>High Risk</span>
+                              </div>
                           )}
                         </div>
                     </div>
