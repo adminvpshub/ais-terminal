@@ -643,12 +643,12 @@ const App: React.FC = () => {
 
             {/* Quick Prompts */}
             {!input && commandQueue.length === 0 && isConnected && !backendError && showPrompts && (
-              <div className="flex flex-wrap gap-2 justify-center mt-2">
+              <div className="flex gap-2 justify-center mt-2 overflow-x-auto no-scrollbar whitespace-nowrap mask-linear-fade">
                 {SAMPLE_PROMPTS.map((prompt, i) => (
                   <button
                     key={i}
                     onClick={() => setInput(prompt)}
-                    className="text-xs bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-gray-200 px-3 py-1.5 rounded-full border border-gray-700 transition-colors"
+                    className="text-xs bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-gray-200 px-3 py-1.5 rounded-full border border-gray-700 transition-colors flex-shrink-0"
                   >
                     {prompt}
                   </button>

@@ -80,6 +80,12 @@ export const Terminal: React.FC<TerminalProps> = ({ socket }) => {
 
         window.addEventListener('resize', handleResize);
         
+        // ResizeObserver to detect container size changes (e.g. when input area expands)
+        const resizeObserver = new ResizeObserver(() => {
+            handleResize();
+        });
+        resizeObserver.observe(terminalRef.current);
+
         // Initial resize after a short delay to ensure container is ready
         setTimeout(handleResize, 100);
 
@@ -88,6 +94,7 @@ export const Terminal: React.FC<TerminalProps> = ({ socket }) => {
             socket.off('ssh:status', onStatus);
             socket.off('ssh:error', onError);
             window.removeEventListener('resize', handleResize);
+            resizeObserver.disconnect();
             term.dispose();
         };
     }, [socket]);
