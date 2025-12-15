@@ -18,8 +18,13 @@ const App: React.FC = () => {
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>(ConnectionStatus.Disconnected);
   const [detectedDistro, setDetectedDistro] = useState<string | null>(null);
   
-  const [terminalEntries, setTerminalEntries] = useState<TerminalEntry[]>([]);
+  // Note: We no longer render terminalEntries, but keep this state if needed for logs/history in future
+  // or simple side-logging. For now, we'll use it to accumulate data for AI context.
+  const [sessionLog, setSessionLog] = useState('');
   const [input, setInput] = useState('');
+
+  // New State for Prompts visibility
+  const [showPrompts, setShowPrompts] = useState(false);
 
   // New State for Command Staging and Execution
   const [commandQueue, setCommandQueue] = useState<CommandStep[]>([]);
@@ -30,7 +35,6 @@ const App: React.FC = () => {
   const [currentOutput, setCurrentOutput] = useState(''); // Accumulate output for fix generation
 
   const [isThinking, setIsThinking] = useState(false);
-  const [isInteractive, setIsInteractive] = useState(false); // Indicates if user is manually typing in "Direct" mode or handling interactive input
   const [inputMode, setInputMode] = useState<'ai' | 'direct'>('ai');
   const [backendError, setBackendError] = useState<string | null>(null);
 
@@ -75,56 +79,38 @@ const App: React.FC = () => {
     const onStatus = (status: string) => {
       if (status === 'connected') {
         const profile = profiles.find(p => p.id === activeProfileId);
-        addLog('output', `Connected to ${profile?.host}`);
         setConnectionStatus(ConnectionStatus.Connected);
+        setShowPrompts(true); // Reset prompts visibility on new connection
       } else if (status === 'disconnected') {
         setConnectionStatus(ConnectionStatus.Disconnected);
         setDetectedDistro(null);
-        addLog('info', 'Disconnected.');
         // Clear state on disconnect
         setCommandQueue([]);
         setActiveStepId(null);
         setExecutionState('idle');
         setSuggestedFix(null);
+        setShowPrompts(false);
       }
     };
 
     const onDistro = (distro: string) => {
       setDetectedDistro(distro);
-      addLog('info', `Detected OS: ${distro}`);
     };
 
     const onError = (msg: string) => {
-      addLog('error', msg);
       if (msg.includes('Connection')) {
         setConnectionStatus(ConnectionStatus.Error);
       }
     };
 
     const onData = (data: string) => {
-      // Accumulate output for current command context
+      // Accumulate output for current command context (AI Fix)
       if (executionState === 'running') {
         setCurrentOutput(prev => prev + data);
       }
 
-      setTerminalEntries(prev => {
-        const last = prev[prev.length - 1];
-        // If the last entry is an output, append to it for streaming effect
-        if (last && last.type === 'output') {
-          return [
-            ...prev.slice(0, -1),
-            { ...last, content: last.content + data }
-          ];
-        } else {
-          // Otherwise start a new output block
-          return [...prev, {
-            id: crypto.randomUUID(),
-            type: 'output',
-            content: data,
-            timestamp: Date.now()
-          }];
-        }
-      });
+      // Accumulate total session log (context)
+      setSessionLog(prev => (prev + data).slice(-50000)); // Keep last 50k chars
     };
 
     const onFinished = async ({ code }: { code: number }) => {
@@ -156,7 +142,7 @@ const App: React.FC = () => {
       socket.off('ssh:finished', onFinished);
       socket.off('connect_error');
     };
-  }, [activeProfileId, profiles, backendError, executionState, isInteractive, detectedDistro]); // Added executionState, isInteractive, and detectedDistro to ensure listeners capture correct state
+  }, [activeProfileId, profiles, backendError, executionState, detectedDistro]);
 
   // When profile changes, disconnect current session
   useEffect(() => {
@@ -175,11 +161,6 @@ const App: React.FC = () => {
   // --- Logic ---
 
   const handleCommandFinished = async (code: number) => {
-    if (isInteractive) {
-       setIsInteractive(false);
-       return;
-    }
-
     // Use ref to get latest state in callback
     const currentQueue = queueRef.current;
     const activeIndex = currentQueue.findIndex(s => s.status === CommandStatus.Running);
@@ -221,7 +202,6 @@ const App: React.FC = () => {
                return 'running';
              } else {
                // All done
-               addLog('info', 'All commands completed successfully.');
                return 'idle';
              }
           });
@@ -233,7 +213,6 @@ const App: React.FC = () => {
        setExecutionState('error');
 
        // Trigger Auto-Fix
-       addLog('error', `Command failed with exit code ${code}. Generating fix...`);
        setIsThinking(true);
 
        const profile = getActiveProfile();
@@ -243,7 +222,7 @@ const App: React.FC = () => {
              const fix = await generateCommandFix(activeStep.command, currentOutput, detectedDistro || 'Linux');
              setSuggestedFix(fix);
            } catch (e) {
-             addLog('error', 'Failed to generate fix suggestion.');
+             console.error('Failed to generate fix suggestion', e);
            } finally {
              setIsThinking(false);
            }
@@ -260,7 +239,6 @@ const App: React.FC = () => {
     setExecutionState('running');
     setCurrentOutput(''); // Clear buffer for new command
 
-    addLog('command', step.command);
     socket.emit('ssh:execute', step.command);
   };
 
@@ -287,9 +265,6 @@ const App: React.FC = () => {
 
   const handlePause = () => {
     setExecutionState('paused');
-    // We can't actually pause a running shell command easily without sending signals,
-    // but we can stop the loop from executing the *next* command.
-    addLog('info', 'Execution paused. Remaining commands saved.');
   };
 
   const handleAbort = () => {
@@ -297,7 +272,6 @@ const App: React.FC = () => {
       setActiveStepId(null);
       setExecutionState('idle');
       setSuggestedFix(null);
-      addLog('info', 'Execution aborted.');
   };
 
   // --- Handlers ---
@@ -333,27 +307,16 @@ const App: React.FC = () => {
 
   const getActiveProfile = () => profiles.find(p => p.id === activeProfileId);
 
-  const addLog = (type: TerminalEntry['type'], content: string) => {
-    setTerminalEntries(prev => [...prev, {
-      id: crypto.randomUUID(),
-      type,
-      content,
-      timestamp: Date.now()
-    }]);
-  };
-
   const handleConnect = () => {
     const profile = getActiveProfile();
     if (!profile) return;
 
     if (!profile.privateKey) {
-        addLog('error', 'Auth Failed: No private key provided in profile.');
+        console.error('Auth Failed: No private key provided in profile.');
         return;
     }
 
     setConnectionStatus(ConnectionStatus.Connecting);
-    setTerminalEntries([]); // Clear terminal on new connection
-    addLog('info', `Initiating connection to ${profile.host}...`);
     
     socket.emit('ssh:connect', {
       host: profile.host,
@@ -370,66 +333,49 @@ const App: React.FC = () => {
     setExecutionState('idle');
     setDetectedDistro(null);
     setInput('');
-    setIsInteractive(false);
   };
 
   // Handles ENTER key in the main input
   const handleInputSubmit = async () => {
-    if (!input.trim() && !isInteractive && executionState === 'idle') {
-        // Allow generating new commands only if idle
-    } else if (!input.trim() && !isInteractive) {
-        return;
-    }
+    if (!input.trim()) return;
 
-    // INTERACTIVE MODE: Send input to running command
-    if (isInteractive || executionState === 'running') {
-       socket.emit('ssh:input', input + '\n');
-       setInput('');
-       return;
-    }
-
-    // DIRECT MODE: Execute command directly
+    // DIRECT MODE: Execute command directly (via shell injection)
+    // Note: With the new Xterm, users can type directly into the terminal.
+    // This input box is now mostly for AI commands or quick "macro" sending.
     if (inputMode === 'direct') {
+      setShowPrompts(false); // Hide prompts on first interaction
       runDirectCommand(input);
       return;
     }
 
     // AI MODE: Generate command queue
     const profile = getActiveProfile();
-    if (!profile) {
-        addLog('error', 'No profile selected.');
-        return;
-    }
+    if (!profile) return;
     
-    if (connectionStatus !== ConnectionStatus.Connected) {
-        addLog('error', 'Not connected. Please connect to the server first.');
-        return;
-    }
+    if (connectionStatus !== ConnectionStatus.Connected) return;
 
     setIsThinking(true);
     setCommandQueue([]);
     setSuggestedFix(null);
+    setShowPrompts(false); // Hide prompts on first interaction
 
     try {
       const result = await generateLinuxCommand(input, detectedDistro || 'Linux');
       setCommandQueue(result.steps);
     } catch (error) {
-      addLog('error', 'Command generation failed.');
+      console.error('Command generation failed', error);
     } finally {
       setIsThinking(false);
     }
   };
 
   const runDirectCommand = (cmd: string) => {
-    if (connectionStatus !== ConnectionStatus.Connected) {
-        addLog('error', 'Not connected. Please connect to the server first.');
-        return;
-    }
+    if (connectionStatus !== ConnectionStatus.Connected) return;
 
-    setIsInteractive(true);
-    addLog('command', cmd);
-
-    // Start execution via socket
+    // We can use ssh:execute to send it with marker, or just inject it as input.
+    // Injecting as input is safer for interactive tools, but we don't get 'finished' event.
+    // If user explicitly uses "Direct" box, maybe they want the command history/AI tracking?
+    // Let's use ssh:execute so it behaves like a "run command" action.
     socket.emit('ssh:execute', cmd);
     setInput('');
     setTimeout(() => inputRef.current?.focus(), 100);
@@ -441,8 +387,6 @@ const App: React.FC = () => {
     // Replace the failed command with the fix in the queue
     setCommandQueue(prev => prev.map(s => {
         if (s.id === activeStepId) {
-            // Keep the ID but update content to preserve queue order?
-            // Better to update content and reset status.
             return {
                 ...s,
                 command: suggestedFix.command,
@@ -456,8 +400,6 @@ const App: React.FC = () => {
     
     setSuggestedFix(null);
     setExecutionState('idle'); // Ready to retry
-    // Auto-retry immediately? Or let user click run?
-    // Let's let user click run (or we can just call handleStartQueue)
   };
 
   const skipStep = () => {
@@ -529,12 +471,8 @@ const App: React.FC = () => {
 
         <div className="flex flex-1 min-h-0 overflow-hidden">
             {/* Terminal Area */}
-            <div className="flex-1 p-4 pb-0 overflow-hidden flex flex-col bg-gray-900 min-h-0">
-                <Terminal
-                    entries={terminalEntries}
-                    activeProfileName={activeProfile?.name}
-                    status={connectionStatus}
-                />
+            <div className="flex-1 p-4 pb-4 overflow-hidden flex flex-col bg-gray-900 min-h-0">
+                <Terminal socket={socket} />
             </div>
 
             {/* Right Sidebar: Command Queue */}
@@ -552,43 +490,123 @@ const App: React.FC = () => {
         <div className="p-4 bg-gray-900 border-t border-gray-800 flex-shrink-0 z-20">
           <div className="max-w-4xl mx-auto space-y-4">
             
-            {/* Control Panel for Execution */}
-            {commandQueue.length > 0 && !suggestedFix && (
-                <div className="flex items-center justify-between bg-gray-800/50 p-3 rounded-lg border border-gray-700">
-                    <div className="text-sm text-gray-400">
-                        {executionState === 'running' ? (
-                            <span className="text-blue-400 flex items-center gap-2">
-                                <span className="animate-spin rounded-full h-3 w-3 border-b-2 border-current"></span>
-                                Executing step...
-                            </span>
-                        ) : executionState === 'paused' ? (
-                            <span className="text-yellow-400">Paused</span>
-                        ) : (
-                            <span>Ready to execute {commandQueue.filter(s => s.status === CommandStatus.Pending).length} steps</span>
-                        )}
-                    </div>
+            {/* Control Panel / Input Wrapper */}
+            <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center">
 
-                    <div className="flex gap-2">
-                         {executionState === 'running' ? (
-                             <Button variant="secondary" size="sm" onClick={handlePause}>
-                                 <Pause size={14} className="mr-2"/> Stop
-                             </Button>
-                         ) : (
-                             <>
-                                <Button variant="ghost" size="sm" onClick={handleAbort}>Abort</Button>
-                                <Button variant="primary" size="sm" onClick={handleStartQueue}>
-                                    <Play size={14} className="mr-2"/>
-                                    {executionState === 'paused' ? 'Resume' : 'Run All'}
-                                </Button>
-                             </>
-                         )}
-                    </div>
+                {/* Input Area */}
+                <div className={`relative flex-1 transition-all duration-200 ${isThinking ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
+                  <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                    {isThinking ? (
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                    ) : (
+                        <div className="text-gray-500 font-mono text-lg">{'>'}</div>
+                    )}
+                  </div>
+
+                  <input
+                    ref={inputRef}
+                    type="text"
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            handleInputSubmit();
+                        }
+                    }}
+                    disabled={(!isConnected && inputMode !== 'ai') || !!backendError} // Disable direct input if not connected, but allow AI input
+                    className={`
+                      w-full text-sm rounded-lg pl-10 pr-12 py-3 outline-none shadow-sm transition-colors
+                      disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-800/50
+                      ${inputMode === 'direct'
+                          ? 'bg-gray-800 border border-green-700/50 text-green-100 focus:ring-2 focus:ring-green-500 focus:border-transparent placeholder-gray-500'
+                          : 'bg-gray-800 border border-gray-700 text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-500'
+                      }
+                    `}
+                    placeholder={
+                        !!backendError
+                            ? "Backend server disconnected"
+                            : !activeProfile
+                                ? "Select a profile to start..."
+                                : !isConnected
+                                      ? "Connect to server to run commands..."
+                                      : inputMode === 'direct'
+                                        ? `Send a command to ${activeProfile.host}...`
+                                        : `Describe a task for ${activeProfile.host}...`
+                    }
+                  />
+
+                  <button
+                    onClick={handleInputSubmit}
+                    disabled={!input.trim() || isThinking || (!isConnected && inputMode !== 'ai') || !!backendError}
+                    className={`
+                      absolute inset-y-1 right-1 p-2 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed
+                      ${inputMode === 'direct'
+                          ? 'text-green-500 hover:bg-green-900/30'
+                          : 'text-gray-400 hover:text-white hover:bg-gray-700'}
+                    `}
+                  >
+                    <Send size={18} />
+                  </button>
                 </div>
-            )}
+
+                {/* Execution Controls (Only show if queue active or input mode toggle needed) */}
+                <div className="flex-shrink-0 flex items-center gap-2">
+                    {commandQueue.length > 0 && !suggestedFix ? (
+                        <div className="flex items-center gap-2 bg-gray-800/50 p-1.5 rounded-lg border border-gray-700">
+                             <div className="text-xs text-gray-400 px-2 hidden lg:block">
+                                {executionState === 'running' ? (
+                                    <span className="text-blue-400 flex items-center gap-2">
+                                        <span className="animate-spin rounded-full h-2 w-2 border-b-2 border-current"></span>
+                                        Running
+                                    </span>
+                                ) : executionState === 'paused' ? (
+                                    <span className="text-yellow-400">Paused</span>
+                                ) : (
+                                    <span>{commandQueue.filter(s => s.status === CommandStatus.Pending).length} Ready</span>
+                                )}
+                            </div>
+
+                             {executionState === 'running' ? (
+                                 <Button variant="secondary" size="sm" onClick={handlePause} className="h-9">
+                                     <Pause size={14} className="mr-1"/> Stop
+                                 </Button>
+                             ) : (
+                                 <>
+                                    <Button variant="ghost" size="sm" onClick={handleAbort} className="h-9">Abort</Button>
+                                    <Button variant="primary" size="sm" onClick={handleStartQueue} className="h-9">
+                                        <Play size={14} className="mr-1"/>
+                                        {executionState === 'paused' ? 'Resume' : 'Run All'}
+                                    </Button>
+                                 </>
+                             )}
+                        </div>
+                    ) : (
+                        // Input Mode Toggle
+                         <div className="bg-gray-800 p-1 rounded-lg flex text-xs font-medium border border-gray-700 h-[42px] items-center">
+                            <button
+                            onClick={() => {
+                                setInputMode('ai');
+                            }}
+                            className={`px-3 py-1.5 rounded flex items-center gap-2 transition-colors h-full ${inputMode === 'ai' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-gray-200'}`}
+                            >
+                            <Sparkles size={14} /> AI
+                            </button>
+                            <button
+                            onClick={() => setInputMode('direct')}
+                            className={`px-3 py-1.5 rounded flex items-center gap-2 transition-colors h-full ${inputMode === 'direct' ? 'bg-green-600 text-white' : 'text-gray-400 hover:text-gray-200'}`}
+                            >
+                            <TerminalIcon size={14} /> Direct
+                            </button>
+                        </div>
+                    )}
+                </div>
+
+            </div>
 
             {/* Fix Suggestion Card */}
             {suggestedFix && (
-              <div className="bg-gray-800/90 backdrop-blur-sm border border-red-500/30 rounded-lg p-4 shadow-xl animate-in slide-in-from-bottom-2">
+              <div className="bg-gray-800/90 backdrop-blur-sm border border-red-500/30 rounded-lg p-4 shadow-xl animate-in slide-in-from-bottom-2 mt-2">
                 <div className="flex justify-between items-start mb-2">
                   <h3 className="text-sm font-semibold text-red-400 uppercase tracking-wider flex items-center gap-2">
                     <AlertTriangle size={14}/> Execution Error
@@ -623,97 +641,9 @@ const App: React.FC = () => {
               </div>
             )}
 
-            {/* Input Mode Toggle - Hide during active execution queue unless paused/idle */}
-            {commandQueue.length === 0 && (
-                <div className="flex justify-end mb-2">
-                <div className="bg-gray-800 p-1 rounded-lg flex text-xs font-medium border border-gray-700">
-                    <button
-                    onClick={() => {
-                        setInputMode('ai');
-                        setIsInteractive(false);
-                    }}
-                    className={`px-3 py-1 rounded flex items-center gap-2 transition-colors ${inputMode === 'ai' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-gray-200'}`}
-                    >
-                    <Sparkles size={14} /> AI
-                    </button>
-                    <button
-                    onClick={() => setInputMode('direct')}
-                    className={`px-3 py-1 rounded flex items-center gap-2 transition-colors ${inputMode === 'direct' ? 'bg-green-600 text-white' : 'text-gray-400 hover:text-gray-200'}`}
-                    >
-                    <TerminalIcon size={14} /> Direct
-                    </button>
-                </div>
-                </div>
-            )}
-
-            {/* Input Area */}
-            <div className={`relative transition-all duration-200 ${isThinking ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
-              <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
-                {isThinking ? (
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
-                ) : isInteractive ? (
-                    <Keyboard size={18} className="text-yellow-500 animate-pulse" />
-                ) : (
-                    <div className="text-gray-500 font-mono text-lg">{'>'}</div>
-                )}
-              </div>
-              
-              <input
-                ref={inputRef}
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        handleInputSubmit();
-                    }
-                }}
-                disabled={(!isConnected && !isInteractive) || !!backendError}
-                className={`
-                  w-full text-sm rounded-lg pl-10 pr-12 py-3 outline-none shadow-sm transition-colors
-                  disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-800/50
-                  ${isInteractive
-                    ? 'bg-gray-800 border-2 border-yellow-500/50 text-yellow-100 focus:border-yellow-500 placeholder-yellow-500/30' 
-                    : inputMode === 'direct'
-                      ? 'bg-gray-800 border border-green-700/50 text-green-100 focus:ring-2 focus:ring-green-500 focus:border-transparent placeholder-gray-500'
-                      : 'bg-gray-800 border border-gray-700 text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-500'
-                  }
-                `}
-                placeholder={
-                    !!backendError
-                        ? "Backend server disconnected"
-                        : !activeProfile 
-                            ? "Select a profile to start..." 
-                            : isInteractive
-                               ? "Command running. Type input here..."
-                               : !isConnected 
-                                  ? "Connect to server to run commands..." 
-                                  : inputMode === 'direct'
-                                    ? `Enter Linux command for ${activeProfile.host}...`
-                                    : `Describe a task for ${activeProfile.host}...`
-                }
-              />
-              
-              <button 
-                onClick={handleInputSubmit}
-                disabled={!input.trim() || isThinking || (!isConnected && !isInteractive) || !!backendError}
-                className={`
-                  absolute inset-y-1 right-1 p-2 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed
-                  ${isInteractive
-                    ? 'text-yellow-500 hover:bg-yellow-900/30'
-                    : inputMode === 'direct'
-                      ? 'text-green-500 hover:bg-green-900/30'
-                      : 'text-gray-400 hover:text-white hover:bg-gray-700'}
-                `}
-              >
-                <Send size={18} />
-              </button>
-            </div>
-
             {/* Quick Prompts */}
-            {!input && commandQueue.length === 0 && isConnected && !isInteractive && !backendError && (
-              <div className="flex flex-wrap gap-2 justify-center">
+            {!input && commandQueue.length === 0 && isConnected && !backendError && showPrompts && (
+              <div className="flex flex-wrap gap-2 justify-center mt-2">
                 {SAMPLE_PROMPTS.map((prompt, i) => (
                   <button
                     key={i}

@@ -59,7 +59,7 @@ app.post('/profiles', async (req, res) => {
 
 // --- Socket.IO SSH Handling ---
 
-// Map socket.id -> { client: SSHClient, stream: SSHStream }
+// Map socket.id -> { client: SSHClient, stream: SSHStream, distro: string }
 const connections = new Map();
 
 io.on('connection', (socket) => {
@@ -77,39 +77,27 @@ io.on('connection', (socket) => {
     const conn = new Client();
     
     conn.on('ready', () => {
-      // Auto-detect OS
-      conn.exec('cat /etc/os-release', (err, stream) => {
-        if (err) {
-          // If detection fails (e.g. channel error), proceed with generic
-          connections.set(socket.id, { client: conn, stream: null, distro: 'Linux' });
-          socket.emit('ssh:distro', 'Linux');
-          socket.emit('ssh:status', 'connected');
-          return;
-        }
+        // 1. Detect OS first (quick one-off exec)
+        conn.exec('cat /etc/os-release', (err, stream) => {
+            let distro = 'Linux';
+            if (!err) {
+                let output = '';
+                stream.on('data', (d) => output += d.toString());
+                stream.on('close', () => {
+                    const prettyMatch = output.match(/^PRETTY_NAME="([^"]+)"/m);
+                    if (prettyMatch && prettyMatch[1]) distro = prettyMatch[1];
+                    else {
+                        const nameMatch = output.match(/^NAME="([^"]+)"/m);
+                        if (nameMatch && nameMatch[1]) distro = nameMatch[1];
+                    }
 
-        let output = '';
-        stream.on('data', (data) => {
-          output += data.toString();
-        }).on('close', () => {
-          let distro = 'Linux';
-          // Try to parse PRETTY_NAME="Ubuntu 22.04 LTS"
-          const prettyMatch = output.match(/^PRETTY_NAME="([^"]+)"/m);
-          if (prettyMatch && prettyMatch[1]) {
-            distro = prettyMatch[1];
-          } else {
-             // Fallback to ID and VERSION
-             const nameMatch = output.match(/^NAME="([^"]+)"/m);
-             if (nameMatch && nameMatch[1]) {
-               distro = nameMatch[1];
-             }
-          }
-
-          console.log(`Detected OS for ${socket.id}: ${distro}`);
-          connections.set(socket.id, { client: conn, stream: null, distro });
-          socket.emit('ssh:distro', distro);
-          socket.emit('ssh:status', 'connected');
+                    // 2. Start Persistent Shell
+                    startShell(conn, distro);
+                });
+            } else {
+                startShell(conn, distro);
+            }
         });
-      });
     }).on('error', (err) => {
       console.error('SSH Error:', err);
       if (err.message && (err.message.includes('ECONNRESET') || err.message.includes('EPIPE'))) {
@@ -126,46 +114,89 @@ io.on('connection', (socket) => {
       port: 22,
       username,
       privateKey,
-      passphrase: passphrase || undefined, // Handle empty string vs undefined
-      keepaliveInterval: 10000, // 10 seconds
-      keepaliveCountMax: 3, // disconnect after 3 failed keepalives
+      passphrase: passphrase || undefined,
+      keepaliveInterval: 10000,
+      keepaliveCountMax: 3,
       algorithms: {
         serverHostKey: ['ssh-rsa', 'ssh-dss', 'ecdsa-sha2-nistp256', 'ssh-ed25519'],
       }
     });
+
+    function startShell(client, distro) {
+        // Spawn a shell with a pseudo-terminal
+        client.shell({ term: 'xterm-256color', cols: 80, rows: 24 }, (err, stream) => {
+            if (err) {
+                socket.emit('ssh:error', 'Failed to start shell: ' + err.message);
+                return;
+            }
+
+            console.log(`Shell started for ${socket.id}, OS: ${distro}`);
+            connections.set(socket.id, { client, stream, distro });
+            socket.emit('ssh:distro', distro);
+            socket.emit('ssh:status', 'connected');
+
+            // Pipe stream to socket
+            stream.on('data', (data) => {
+                // Check for magic marker from AI commands
+                // Marker format: ___CMD_DONE:<exit_code>___
+                // We need to parse this out of the stream to avoid showing it to user if possible,
+                // OR just let it show and have frontend handle it?
+                // Actually, if we use a persistent shell, the echo will appear in the output.
+                // We should detect it, strip it, and emit ssh:finished.
+
+                // Note: Data can come in chunks. Splitting markers across chunks is a risk.
+                // For simplicity in this MVP, we'll scan the string.
+                const str = data.toString();
+                const markerRegex = /___CMD_DONE:(\d+)___(\r\n|\n)?/;
+                const match = str.match(markerRegex);
+
+                if (match) {
+                    const code = parseInt(match[1], 10);
+                    socket.emit('ssh:finished', { code });
+                    // Strip the marker from the output sent to frontend
+                    // Also strip the newline after it if present
+                    const cleanOutput = str.replace(markerRegex, '');
+                    if (cleanOutput) {
+                        socket.emit('ssh:data', cleanOutput);
+                    }
+                } else {
+                    socket.emit('ssh:data', str);
+                }
+            });
+
+            stream.on('close', () => {
+                socket.emit('ssh:status', 'disconnected');
+                connections.delete(socket.id);
+            });
+        });
+    }
   });
 
   socket.on('ssh:execute', (command) => {
     const session = connections.get(socket.id);
-    if (!session || !session.client) {
+    if (!session || !session.stream) {
       socket.emit('ssh:error', 'No active connection');
       return;
     }
 
-    // Use pty: true to enable pseudo-terminal for interactive commands (sudo, etc)
-    session.client.exec(command, { pty: true }, (err, stream) => {
-      if (err) {
-        socket.emit('ssh:error', err.message);
-        return;
-      }
-
-      session.stream = stream;
-
-      stream.on('close', (code, signal) => {
-        socket.emit('ssh:finished', { code });
-        session.stream = null;
-      }).on('data', (data) => {
-        socket.emit('ssh:data', data.toString());
-      }).stderr.on('data', (data) => {
-        socket.emit('ssh:data', data.toString());
-      });
-    });
+    // Wrap command with marker to detect completion code
+    // "command; echo '___CMD_DONE:$?___'"
+    // We add a newline to execute it.
+    const wrapped = `${command}; echo "___CMD_DONE:$?___"\n`;
+    session.stream.write(wrapped);
   });
 
   socket.on('ssh:input', (data) => {
     const session = connections.get(socket.id);
     if (session && session.stream) {
       session.stream.write(data);
+    }
+  });
+
+  socket.on('ssh:resize', ({ cols, rows }) => {
+    const session = connections.get(socket.id);
+    if (session && session.stream) {
+        session.stream.setWindow(rows, cols, 0, 0);
     }
   });
 
