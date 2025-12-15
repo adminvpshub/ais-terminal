@@ -7,12 +7,25 @@ import { Socket } from 'socket.io-client';
 
 interface TerminalProps {
     socket: Socket;
+    fontSize: number;
 }
 
-export const Terminal: React.FC<TerminalProps> = ({ socket }) => {
+export const Terminal: React.FC<TerminalProps> = ({ socket, fontSize }) => {
     const terminalRef = useRef<HTMLDivElement>(null);
     const xtermRef = useRef<XTerm | null>(null);
     const fitAddonRef = useRef<FitAddon | null>(null);
+
+    useEffect(() => {
+        if (xtermRef.current && fitAddonRef.current) {
+            xtermRef.current.options.fontSize = fontSize;
+            fitAddonRef.current.fit();
+            // Emit resize event to backend because font size change affects dimensions
+            const dims = fitAddonRef.current.proposeDimensions();
+            if (dims) {
+                socket.emit('ssh:resize', { cols: dims.cols, rows: dims.rows });
+            }
+        }
+    }, [fontSize, socket]);
 
     useEffect(() => {
         if (!terminalRef.current) return;
@@ -20,7 +33,7 @@ export const Terminal: React.FC<TerminalProps> = ({ socket }) => {
         // Initialize XTerm
         const term = new XTerm({
             cursorBlink: true,
-            fontSize: 14,
+            fontSize: fontSize,
             fontFamily: 'Menlo, Monaco, "Courier New", monospace',
             theme: {
                 background: '#111827', // gray-900 matches app theme
