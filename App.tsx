@@ -7,7 +7,7 @@ import { SSHProfile, TerminalEntry, CommandGenerationResult, ConnectionStatus, C
 import { generateLinuxCommand, generateCommandFix } from './services/geminiService';
 import { socket, connectSocket } from './services/sshService';
 import { SAMPLE_PROMPTS } from './constants';
-import { Send, Play, Cpu, AlertTriangle, Command, Link, Keyboard, ServerOff, Sparkles, Pause, RefreshCw, XCircle, SkipForward } from 'lucide-react';
+import { Send, Play, Cpu, AlertTriangle, Command, Link, Keyboard, ServerOff, Sparkles, Terminal as TerminalIcon, Pause, RefreshCw, XCircle, SkipForward, Type } from 'lucide-react';
 
 const API_URL = 'http://localhost:3001';
 
@@ -17,6 +17,7 @@ const App: React.FC = () => {
   const [activeProfileId, setActiveProfileId] = useState<string | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>(ConnectionStatus.Disconnected);
   const [detectedDistro, setDetectedDistro] = useState<string | null>(null);
+  const [fontSize, setFontSize] = useState<number>(14);
   
   // Note: We no longer render terminalEntries, but keep this state if needed for logs/history in future
   // or simple side-logging. For now, we'll use it to accumulate data for AI context.
@@ -48,6 +49,12 @@ const App: React.FC = () => {
 
   // --- Effects ---
   useEffect(() => {
+    // Load font size
+    const savedFontSize = localStorage.getItem('terminal_font_size');
+    if (savedFontSize) {
+        setFontSize(parseInt(savedFontSize, 10));
+    }
+
     // Load profiles from backend
     fetch(`${API_URL}/profiles`)
       .then(res => {
@@ -72,6 +79,11 @@ const App: React.FC = () => {
       // Optional: disconnectSocket() if you want to cleanup on unmount
     };
   }, []);
+
+  // Save font size
+  useEffect(() => {
+      localStorage.setItem('terminal_font_size', fontSize.toString());
+  }, [fontSize]);
 
   // Socket Event Listeners
   useEffect(() => {
@@ -273,6 +285,10 @@ const App: React.FC = () => {
       setSuggestedFix(null);
   };
 
+  const handleFontSizeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+      setFontSize(parseInt(e.target.value, 10));
+  };
+
   // --- Handlers ---
   
   const saveProfilesToBackend = async (newProfiles: SSHProfile[]) => {
@@ -414,20 +430,36 @@ const App: React.FC = () => {
                 SSH Engine
              </div>
              
-             {activeProfile && (
-                <div className="flex items-center gap-3 text-xs text-gray-500">
-                    <div className="flex items-center gap-1">
-                      <Link size={12}/>
-                      {activeProfile.username}@{activeProfile.host}
+             <div className="flex items-center gap-4">
+                 {/* Font Size Selector */}
+                 <div className="flex items-center gap-2">
+                     <Type size={14} className="text-gray-500"/>
+                     <select
+                        value={fontSize}
+                        onChange={handleFontSizeChange}
+                        className="bg-gray-800 text-xs text-gray-300 border border-gray-700 rounded px-1.5 py-1 focus:ring-1 focus:ring-blue-500 outline-none"
+                     >
+                        {[8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20].map(size => (
+                            <option key={size} value={size}>{size}px</option>
+                        ))}
+                     </select>
+                 </div>
+
+                 {activeProfile && (
+                    <div className="flex items-center gap-3 text-xs text-gray-500 border-l border-gray-800 pl-4">
+                        <div className="flex items-center gap-1">
+                          <Link size={12}/>
+                          {activeProfile.username}@{activeProfile.host}
+                        </div>
+                        {detectedDistro && (
+                          <div className="flex items-center gap-1 text-blue-400 bg-blue-900/20 px-2 py-0.5 rounded border border-blue-900/30">
+                            <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse"></span>
+                            {detectedDistro}
+                          </div>
+                        )}
                     </div>
-                    {detectedDistro && (
-                      <div className="flex items-center gap-1 text-blue-400 bg-blue-900/20 px-2 py-0.5 rounded border border-blue-900/30">
-                        <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse"></span>
-                        {detectedDistro}
-                      </div>
-                    )}
-                </div>
-             )}
+                 )}
+             </div>
         </div>
 
         {/* Error Banner */}
@@ -450,7 +482,7 @@ const App: React.FC = () => {
         <div className="flex flex-1 min-h-0 overflow-hidden">
             {/* Terminal Area */}
             <div className="flex-1 p-4 pb-4 overflow-hidden flex flex-col bg-gray-900 min-h-0">
-                <Terminal socket={socket} />
+                <Terminal socket={socket} fontSize={fontSize} />
             </div>
 
             {/* Right Sidebar: Command Queue */}
@@ -589,12 +621,12 @@ const App: React.FC = () => {
 
             {/* Quick Prompts */}
             {!input && commandQueue.length === 0 && isConnected && !backendError && showPrompts && (
-              <div className="flex flex-wrap gap-2 justify-center mt-2">
+              <div className="flex gap-2 justify-center mt-2 overflow-x-auto no-scrollbar whitespace-nowrap mask-linear-fade">
                 {SAMPLE_PROMPTS.map((prompt, i) => (
                   <button
                     key={i}
                     onClick={() => setInput(prompt)}
-                    className="text-xs bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-gray-200 px-3 py-1.5 rounded-full border border-gray-700 transition-colors"
+                    className="text-xs bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-gray-200 px-3 py-1.5 rounded-full border border-gray-700 transition-colors flex-shrink-0"
                   >
                     {prompt}
                   </button>
