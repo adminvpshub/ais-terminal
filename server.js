@@ -165,8 +165,7 @@ io.on('connection', (socket) => {
             });
 
             stream.on('close', () => {
-                socket.emit('ssh:status', 'disconnected');
-                connections.delete(socket.id);
+                closeSession(socket.id);
             });
         });
     }
@@ -200,11 +199,18 @@ io.on('connection', (socket) => {
     }
   });
 
+  const closeSession = (socketId) => {
+      if (connections.has(socketId)) {
+          socket.emit('ssh:status', 'disconnected');
+          connections.delete(socketId);
+      }
+  };
+
   socket.on('ssh:disconnect', () => {
     const session = connections.get(socket.id);
     if (session) {
       session.client.end();
-      connections.delete(socket.id);
+      // 'end' event on client will trigger closeSession
     }
   });
 
@@ -233,7 +239,6 @@ io.on('connection', (socket) => {
     }
   };
 
-  socket.on('ssh:disconnect', cleanup);
   socket.on('disconnect', cleanup);
 });
 
