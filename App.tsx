@@ -371,8 +371,14 @@ const App: React.FC = () => {
       }
   };
 
-  const handleAddProfile = (profile: SSHProfile) => {
-    const updated = [...profiles, profile];
+  const handleSaveProfile = (profile: SSHProfile) => {
+    const exists = profiles.some(p => p.id === profile.id);
+    let updated;
+    if (exists) {
+        updated = profiles.map(p => p.id === profile.id ? profile : p);
+    } else {
+        updated = [...profiles, profile];
+    }
     handleProfileUpdate(updated);
     if (!activeProfileId) setActiveProfileId(profile.id);
   };
@@ -546,7 +552,7 @@ const App: React.FC = () => {
         connectedProfileId={connectedProfileId}
         connectionStatus={connectionStatus}
         onSelectProfile={setActiveProfileId}
-        onSaveProfile={handleAddProfile}
+        onSaveProfile={handleSaveProfile}
         onDeleteProfile={handleDeleteProfile}
         onConnect={handleConnect}
         onDisconnect={handleDisconnect}
