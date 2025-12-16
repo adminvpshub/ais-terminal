@@ -15,7 +15,8 @@ const API_URL = 'http://localhost:3001';
 const App: React.FC = () => {
   // --- State ---
   const [profiles, setProfiles] = useState<SSHProfile[]>([]);
-  const [activeProfileId, setActiveProfileId] = useState<string | null>(null);
+  const [activeProfileId, setActiveProfileId] = useState<string | null>(null); // "Selected" profile in sidebar
+  const [connectedProfileId, setConnectedProfileId] = useState<string | null>(null); // Actually "Connected" profile
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>(ConnectionStatus.Disconnected);
   const [detectedDistro, setDetectedDistro] = useState<string | null>(null);
   const [fontSize, setFontSize] = useState<number>(14);
@@ -113,13 +114,15 @@ const App: React.FC = () => {
   useEffect(() => {
     const onStatus = (status: string) => {
       if (status === 'connected') {
-        const profile = profiles.find(p => p.id === activeProfileId);
+        // When connected, ensure we know WHICH profile is connected.
+        // Usually it's the pending one, or we assume it's the one we initiated connection for.
+        // We set connectedProfileId in handleConnect/triggerConnection.
         setConnectionStatus(ConnectionStatus.Connected);
-        setShowPrompts(true); // Reset prompts visibility on new connection
+        setShowPrompts(true);
       } else if (status === 'disconnected') {
         setConnectionStatus(ConnectionStatus.Disconnected);
+        setConnectedProfileId(null);
         setDetectedDistro(null);
-        // Clear state on disconnect
         setCommandQueue([]);
         setActiveStepId(null);
         setExecutionState('idle');
@@ -187,12 +190,8 @@ const App: React.FC = () => {
     };
   }, [activeProfileId, profiles, backendError, executionState, detectedDistro, connectionStatus]);
 
-  // When profile changes, disconnect current session
-  useEffect(() => {
-    if (connectionStatus === ConnectionStatus.Connected) {
-      handleDisconnect();
-    }
-  }, [activeProfileId]);
+  // Removed auto-disconnect useEffect.
+  // Selecting a different profile (activeProfileId) should NOT disconnect the current session.
 
   // Sync Queue to Backend on Change (Pause/Stop logic)
   useEffect(() => {
@@ -249,7 +248,7 @@ const App: React.FC = () => {
        // Trigger Auto-Fix
        setIsThinking(true);
 
-       const profile = getActiveProfile();
+       const profile = getContextProfile();
        if (profile) {
            try {
              // Use the accumulated output 'currentOutput'
@@ -384,10 +383,22 @@ const App: React.FC = () => {
     if (activeProfileId === id) setActiveProfileId(null);
   };
 
+  // Returns the profile that provides context for the main area (Header, Input, AI)
+  // If connected, it's the connected profile. Otherwise, it's the selected (active) profile.
+  const getContextProfile = () => {
+      if (connectionStatus === ConnectionStatus.Connected && connectedProfileId) {
+          return profiles.find(p => p.id === connectedProfileId);
+      }
+      return profiles.find(p => p.id === activeProfileId);
+  };
+
+  // Helper to get the profile currently selected in sidebar (for Connect action)
+  const getSelectedProfile = () => profiles.find(p => p.id === activeProfileId);
+
   const getActiveProfile = () => profiles.find(p => p.id === activeProfileId);
 
   const handleConnect = () => {
-    const profile = getActiveProfile();
+    const profile = getSelectedProfile();
     if (!profile) return;
 
     // Check for cached PIN
@@ -401,7 +412,11 @@ const App: React.FC = () => {
   };
 
   const triggerConnection = (profileId: string, pin: string) => {
+      // If we are already connected to another profile, this new connection request
+      // will implicitly disconnect the old one on the backend.
+      // Frontend state needs to update to reflect we are connecting to NEW profile.
       setConnectionStatus(ConnectionStatus.Connecting);
+      setConnectedProfileId(profileId); // Set intent to connect to this profile
       socket.emit('ssh:connect', {
           profileId,
           pin
@@ -431,6 +446,7 @@ const App: React.FC = () => {
   const handleDisconnect = () => {
     socket.emit('ssh:disconnect');
     setConnectionStatus(ConnectionStatus.Disconnected);
+    setConnectedProfileId(null);
     setCommandQueue([]);
     setExecutionState('idle');
     setDetectedDistro(null);
@@ -447,7 +463,8 @@ const App: React.FC = () => {
       return;
     }
 
-    const profile = getActiveProfile();
+    // Context for AI commands comes from the CONNECTED profile if connected
+    const profile = getContextProfile();
     if (!profile) return;
     
     if (connectionStatus !== ConnectionStatus.Connected) return;
@@ -501,7 +518,7 @@ const App: React.FC = () => {
       setExecutionState('idle');
   };
 
-  const activeProfile = getActiveProfile();
+  const activeProfile = getContextProfile(); // For Header display
   const isConnected = connectionStatus === ConnectionStatus.Connected;
 
   return (
@@ -526,6 +543,7 @@ const App: React.FC = () => {
       <ConnectionManager 
         profiles={profiles}
         activeProfileId={activeProfileId}
+        connectedProfileId={connectedProfileId}
         connectionStatus={connectionStatus}
         onSelectProfile={setActiveProfileId}
         onSaveProfile={handleAddProfile}

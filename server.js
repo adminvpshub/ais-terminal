@@ -348,8 +348,10 @@ io.on('connection', (socket) => {
                 });
 
                 stream.on('close', () => {
+                if (connections.has(socket.id)) {
                     socket.emit('ssh:status', 'disconnected');
                     connections.delete(socket.id);
+                }
                 });
             });
         }

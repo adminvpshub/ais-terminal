@@ -6,6 +6,7 @@ import { Server, Plus, Trash2, Download, Save, Eye, EyeOff, Plug, PanelLeftClose
 interface ConnectionManagerProps {
   profiles: SSHProfile[];
   activeProfileId: string | null;
+  connectedProfileId: string | null;
   connectionStatus: ConnectionStatus;
   onSelectProfile: (id: string) => void;
   onSaveProfile: (profile: SSHProfile) => void;
@@ -17,6 +18,7 @@ interface ConnectionManagerProps {
 export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
   profiles,
   activeProfileId,
+  connectedProfileId,
   connectionStatus,
   onSelectProfile,
   onSaveProfile,
@@ -187,6 +189,7 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
 
         {profiles.map(profile => {
           const isActive = activeProfileId === profile.id;
+          const isConnectedProfile = connectedProfileId === profile.id;
 
           if (isCollapsed) {
               return (
@@ -202,7 +205,7 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
                     `}
                 >
                     <Server size={20} />
-                    {isActive && isConnected && (
+                    {isConnectedProfile && isConnected && (
                         <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-gray-800 animate-pulse"></span>
                     )}
                 </div>
@@ -226,7 +229,7 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
                     <div className={`font-medium truncate ${isActive ? 'text-blue-400' : 'text-gray-200'}`}>
                       {profile.name}
                     </div>
-                    {isActive && isConnected && (
+                    {isConnectedProfile && isConnected && (
                       <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
                     )}
                   </div>
