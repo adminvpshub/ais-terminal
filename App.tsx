@@ -3,6 +3,7 @@ import { ConnectionManager } from './components/ConnectionManager';
 import { Terminal } from './components/Terminal';
 import { Button } from './components/Button';
 import { TaskSidebar } from './components/TaskSidebar';
+import { SetupPinModal, PinEntryModal } from './components/AuthModals';
 import { SSHProfile, TerminalEntry, CommandGenerationResult, ConnectionStatus, CommandStep, CommandStatus } from './types';
 import { generateLinuxCommand, generateCommandFix } from './services/geminiService';
 import { socket, connectSocket } from './services/sshService';
@@ -14,7 +15,8 @@ const API_URL = 'http://localhost:3001';
 const App: React.FC = () => {
   // --- State ---
   const [profiles, setProfiles] = useState<SSHProfile[]>([]);
-  const [activeProfileId, setActiveProfileId] = useState<string | null>(null);
+  const [activeProfileId, setActiveProfileId] = useState<string | null>(null); // "Selected" profile in sidebar
+  const [connectedProfileId, setConnectedProfileId] = useState<string | null>(null); // Actually "Connected" profile
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>(ConnectionStatus.Disconnected);
   const [detectedDistro, setDetectedDistro] = useState<string | null>(null);
   const [fontSize, setFontSize] = useState<number>(14);
@@ -36,7 +38,15 @@ const App: React.FC = () => {
   const [currentOutput, setCurrentOutput] = useState(''); // Accumulate output for fix generation
 
   const [isThinking, setIsThinking] = useState(false);
+  const [inputMode, setInputMode] = useState<'ai' | 'direct'>('ai');
   const [backendError, setBackendError] = useState<string | null>(null);
+
+  // Auth State
+  const [isPinSetup, setIsPinSetup] = useState<boolean>(true); // Assume true initially to avoid flash
+  const [showSetupModal, setShowSetupModal] = useState(false);
+  const [showPinEntryModal, setShowPinEntryModal] = useState(false);
+  const [cachedPin, setCachedPin] = useState<string | null>(null);
+  const [pendingConnectProfileId, setPendingConnectProfileId] = useState<string | null>(null);
 
   // --- Refs ---
   const inputRef = useRef<HTMLInputElement>(null);
@@ -49,6 +59,17 @@ const App: React.FC = () => {
 
   // --- Effects ---
   useEffect(() => {
+    // Check Auth Status
+    fetch(`${API_URL}/auth/status`)
+        .then(res => res.json())
+        .then(data => {
+            setIsPinSetup(data.isSetup);
+            if (!data.isSetup) {
+                setShowSetupModal(true);
+            }
+        })
+        .catch(err => console.error("Auth check failed", err));
+
     // Load font size
     const savedFontSize = localStorage.getItem('terminal_font_size');
     if (savedFontSize) {
@@ -56,22 +77,8 @@ const App: React.FC = () => {
     }
 
     // Load profiles from backend
-    fetch(`${API_URL}/profiles`)
-      .then(res => {
-        if (!res.ok) throw new Error(`Server returned ${res.status}`);
-        return res.json();
-      })
-      .then(data => {
-        if (Array.isArray(data)) {
-          setProfiles(data);
-          setBackendError(null);
-        }
-      })
-      .catch(err => {
-        console.error("Failed to load profiles:", err);
-        setBackendError("Could not connect to backend server. Please ensure 'node server.js' is running on port 3001.");
-      });
-    
+    loadProfiles();
+
     // Initialize Socket Connection
     connectSocket();
 
@@ -79,6 +86,34 @@ const App: React.FC = () => {
       // Optional: disconnectSocket() if you want to cleanup on unmount
     };
   }, []);
+
+  const loadProfiles = () => {
+    fetch(`${API_URL}/profiles`)
+      .then(res => {
+        if (!res.ok) throw new Error(`Server returned ${res.status}`);
+        return res.json();
+      })
+      .then(data => {
+        if (Array.isArray(data)) {
+          // Deduplicate profiles by ID, keeping the latest one
+          const seen = new Set();
+          const uniqueProfiles = [];
+          for (let i = data.length - 1; i >= 0; i--) {
+              const p = data[i];
+              if (!seen.has(p.id)) {
+                  seen.add(p.id);
+                  uniqueProfiles.unshift(p);
+              }
+          }
+          setProfiles(uniqueProfiles);
+          setBackendError(null);
+        }
+      })
+      .catch(err => {
+        console.error("Failed to load profiles:", err);
+        setBackendError("Could not connect to backend server. Please ensure 'node server.js' is running on port 3001.");
+      });
+  };
 
   // Save font size
   useEffect(() => {
@@ -89,13 +124,15 @@ const App: React.FC = () => {
   useEffect(() => {
     const onStatus = (status: string) => {
       if (status === 'connected') {
-        const profile = profiles.find(p => p.id === activeProfileId);
+        // When connected, ensure we know WHICH profile is connected.
+        // Usually it's the pending one, or we assume it's the one we initiated connection for.
+        // We set connectedProfileId in handleConnect/triggerConnection.
         setConnectionStatus(ConnectionStatus.Connected);
-        setShowPrompts(true); // Reset prompts visibility on new connection
+        setShowPrompts(true);
       } else if (status === 'disconnected') {
         setConnectionStatus(ConnectionStatus.Disconnected);
+        setConnectedProfileId(null);
         setDetectedDistro(null);
-        // Clear state on disconnect
         setCommandQueue([]);
         setActiveStepId(null);
         setExecutionState('idle');
@@ -111,6 +148,14 @@ const App: React.FC = () => {
     const onError = (msg: string) => {
       if (msg.includes('Connection')) {
         setConnectionStatus(ConnectionStatus.Error);
+      }
+      // If we got an error during connection (e.g. invalid PIN), reset connecting state
+      if (connectionStatus === ConnectionStatus.Connecting) {
+          setConnectionStatus(ConnectionStatus.Error);
+          // Optional: clear cached PIN if invalid?
+          if (msg.toLowerCase().includes('pin')) {
+              setCachedPin(null);
+          }
       }
     };
 
@@ -153,14 +198,10 @@ const App: React.FC = () => {
       socket.off('ssh:finished', onFinished);
       socket.off('connect_error');
     };
-  }, [activeProfileId, profiles, backendError, executionState, detectedDistro]);
+  }, [activeProfileId, profiles, backendError, executionState, detectedDistro, connectionStatus]);
 
-  // When profile changes, disconnect current session
-  useEffect(() => {
-    if (connectionStatus === ConnectionStatus.Connected) {
-      handleDisconnect();
-    }
-  }, [activeProfileId]);
+  // Removed auto-disconnect useEffect.
+  // Selecting a different profile (activeProfileId) should NOT disconnect the current session.
 
   // Sync Queue to Backend on Change (Pause/Stop logic)
   useEffect(() => {
@@ -186,21 +227,12 @@ const App: React.FC = () => {
        setCurrentOutput(''); // Reset output buffer
 
        // If we are in "Run All" mode (implied if not paused), run next
-       // But checking state here is tricky because React batching.
-       // We'll rely on a small timeout or function call to proceed.
-       // Simple logic: If we have next step, and we haven't been told to pause (via user interaction which would set state), continue.
-       // However, we need to know if we should "Run All" or just "Step".
-       // For this MVP, let's assume "Run All" is the default behavior once started, unless paused.
-
-       // Check if we should continue running (Run All mode) or stop (Single mode)
        if (runMode === 'single') {
            setExecutionState('idle');
            addLog('info', 'Step completed.');
            return;
        }
 
-       // We need to check if user clicked "Pause". State updates might be pending.
-       // Let's rely on a state checker in the next tick.
        setTimeout(() => {
           setExecutionState(prevState => {
              if (prevState === 'paused') return 'paused'; // User paused manually
@@ -226,7 +258,7 @@ const App: React.FC = () => {
        // Trigger Auto-Fix
        setIsThinking(true);
 
-       const profile = getActiveProfile();
+       const profile = getContextProfile();
        if (profile) {
            try {
              // Use the accumulated output 'currentOutput'
@@ -292,58 +324,145 @@ const App: React.FC = () => {
   // --- Handlers ---
   
   const saveProfilesToBackend = async (newProfiles: SSHProfile[]) => {
-    try {
-      const res = await fetch(`${API_URL}/profiles`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newProfiles)
-      });
-      if (!res.ok) throw new Error("Failed to save");
-      setBackendError(null);
-    } catch (err) {
-      console.error("Failed to save profiles:", err);
-      setBackendError("Failed to save profiles. Is the backend running?");
-    }
+    // Determine if we need PIN to save.
+    // If we have cachedPin, use it.
+    // If not, we might need to ask?
+    // Ideally, when user adds/edits profile, we should ask for PIN then if not cached.
+    // But ConnectionManager is handling the UI.
+    // Let's assume for this MVP, if they don't have a cached PIN, we can't save encrypted data properly *if* we need to re-encrypt.
+    // Actually, backend requires PIN to encrypt new keys.
+    // If we are just deleting, maybe we don't need PIN? But backend endpoint checks for it.
+
+    // We need to trigger PIN modal if no cached PIN.
+    // But this function is called from child component.
+    // We'll wrap the logic.
   };
 
-  const handleAddProfile = (profile: SSHProfile) => {
-    const updated = [...profiles, profile];
-    setProfiles(updated);
-    saveProfilesToBackend(updated);
+  // Refactored Profile Handling with PIN Support
+  const handleProfileUpdate = async (updatedProfiles: SSHProfile[]) => {
+      if (cachedPin) {
+          await performSave(updatedProfiles, cachedPin);
+      } else {
+          // Trigger PIN entry, then save
+          // We need to store the intended action
+          // Ideally we would pass a callback to the modal, but using state is easier for now.
+          // BUT, `updatedProfiles` is transient.
+          // Let's just prompt user in the UI before calling this?
+          // No, let's show modal here.
+          // For simplicity in this turn, we'll just fail if not logged in?
+          // No, requirement is to prompt.
+          // Let's use a temporary promise mechanism or just state.
+          // Since we can't await the modal easily in this flow without bigger refactor,
+          // let's force the user to "Connect" (unlock) before editing?
+          // Or just show the modal and retry inside the modal's success handler?
+          // Let's go with: Show modal, and pass the data to be saved to the modal or a pending state.
+          // Simpler: Just set a "pendingSave" state.
+          setPendingSaveProfiles(updatedProfiles);
+          setShowPinEntryModal(true);
+      }
+  };
+
+  const [pendingSaveProfiles, setPendingSaveProfiles] = useState<SSHProfile[] | null>(null);
+
+  const performSave = async (profilesToSave: SSHProfile[], pin: string) => {
+      try {
+        const res = await fetch(`${API_URL}/profiles`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ profiles: profilesToSave, pin })
+        });
+        if (!res.ok) throw new Error("Failed to save");
+        setProfiles(profilesToSave);
+        setBackendError(null);
+        setPendingSaveProfiles(null);
+      } catch (err) {
+        console.error("Failed to save profiles:", err);
+        setBackendError("Failed to save profiles.");
+      }
+  };
+
+  const handleSaveProfile = (profile: SSHProfile) => {
+    const exists = profiles.some(p => p.id === profile.id);
+    let updated;
+    if (exists) {
+        updated = profiles.map(p => p.id === profile.id ? profile : p);
+    } else {
+        updated = [...profiles, profile];
+    }
+    handleProfileUpdate(updated);
     if (!activeProfileId) setActiveProfileId(profile.id);
   };
 
   const handleDeleteProfile = (id: string) => {
     const updated = profiles.filter(p => p.id !== id);
-    setProfiles(updated);
-    saveProfilesToBackend(updated);
+    handleProfileUpdate(updated);
     if (activeProfileId === id) setActiveProfileId(null);
   };
+
+  // Returns the profile that provides context for the main area (Header, Input, AI)
+  // If connected, it's the connected profile. Otherwise, it's the selected (active) profile.
+  const getContextProfile = () => {
+      if (connectionStatus === ConnectionStatus.Connected && connectedProfileId) {
+          return profiles.find(p => p.id === connectedProfileId);
+      }
+      return profiles.find(p => p.id === activeProfileId);
+  };
+
+  // Helper to get the profile currently selected in sidebar (for Connect action)
+  const getSelectedProfile = () => profiles.find(p => p.id === activeProfileId);
 
   const getActiveProfile = () => profiles.find(p => p.id === activeProfileId);
 
   const handleConnect = () => {
-    const profile = getActiveProfile();
+    const profile = getSelectedProfile();
     if (!profile) return;
 
-    if (!profile.privateKey) {
-        console.error('Auth Failed: No private key provided in profile.');
+    // Check for cached PIN
+    if (!cachedPin) {
+        setPendingConnectProfileId(profile.id);
+        setShowPinEntryModal(true);
         return;
     }
 
-    setConnectionStatus(ConnectionStatus.Connecting);
-    
-    socket.emit('ssh:connect', {
-      host: profile.host,
-      username: profile.username,
-      privateKey: profile.privateKey,
-      passphrase: profile.passphrase
-    });
+    triggerConnection(profile.id, cachedPin);
+  };
+
+  const triggerConnection = (profileId: string, pin: string) => {
+      // If we are already connected to another profile, this new connection request
+      // will implicitly disconnect the old one on the backend.
+      // Frontend state needs to update to reflect we are connecting to NEW profile.
+      setConnectionStatus(ConnectionStatus.Connecting);
+      setConnectedProfileId(profileId); // Set intent to connect to this profile
+      socket.emit('ssh:connect', {
+          profileId,
+          pin
+      });
+  };
+
+  const handlePinSetupSuccess = () => {
+      setShowSetupModal(false);
+      setIsPinSetup(true);
+      // Reload profiles to ensure we have the encrypted versions (though frontend just sees masks)
+      loadProfiles();
+  };
+
+  const handlePinEntrySuccess = (pin: string) => {
+      setCachedPin(pin);
+      setShowPinEntryModal(false);
+
+      // Handle pending actions
+      if (pendingConnectProfileId) {
+          triggerConnection(pendingConnectProfileId, pin);
+          setPendingConnectProfileId(null);
+      } else if (pendingSaveProfiles) {
+          performSave(pendingSaveProfiles, pin);
+      }
   };
 
   const handleDisconnect = () => {
     socket.emit('ssh:disconnect');
     setConnectionStatus(ConnectionStatus.Disconnected);
+    setConnectedProfileId(null);
     setCommandQueue([]);
     setExecutionState('idle');
     setDetectedDistro(null);
@@ -354,8 +473,14 @@ const App: React.FC = () => {
   const handleInputSubmit = async () => {
     if (!input.trim()) return;
 
-    // AI MODE: Generate command queue
-    const profile = getActiveProfile();
+    if (inputMode === 'direct') {
+      setShowPrompts(false);
+      runDirectCommand(input);
+      return;
+    }
+
+    // Context for AI commands comes from the CONNECTED profile if connected
+    const profile = getContextProfile();
     if (!profile) return;
     
     if (connectionStatus !== ConnectionStatus.Connected) return;
@@ -363,7 +488,7 @@ const App: React.FC = () => {
     setIsThinking(true);
     setCommandQueue([]);
     setSuggestedFix(null);
-    setShowPrompts(false); // Hide prompts on first interaction
+    setShowPrompts(false);
 
     try {
       const result = await generateLinuxCommand(input, detectedDistro || 'Linux');
@@ -375,10 +500,16 @@ const App: React.FC = () => {
     }
   };
 
+  const runDirectCommand = (cmd: string) => {
+    if (connectionStatus !== ConnectionStatus.Connected) return;
+    socket.emit('ssh:execute', cmd);
+    setInput('');
+    setTimeout(() => inputRef.current?.focus(), 100);
+  };
+
   const applyFix = () => {
     if (!suggestedFix || !activeStepId) return;
     
-    // Replace the failed command with the fix in the queue
     setCommandQueue(prev => prev.map(s => {
         if (s.id === activeStepId) {
             return {
@@ -393,28 +524,45 @@ const App: React.FC = () => {
     }));
     
     setSuggestedFix(null);
-    setExecutionState('idle'); // Ready to retry
+    setExecutionState('idle');
   };
 
   const skipStep = () => {
       if (!activeStepId) return;
       updateStepStatus(activeStepId, CommandStatus.Skipped);
       setSuggestedFix(null);
-      setExecutionState('idle'); // Pause after skip, let user resume
+      setExecutionState('idle');
   };
 
-  const activeProfile = getActiveProfile();
+  const activeProfile = getContextProfile(); // For Header display
   const isConnected = connectionStatus === ConnectionStatus.Connected;
 
   return (
     <div className="flex h-screen w-full bg-gray-900 text-gray-100 font-sans selection:bg-blue-500/30">
+
+      {/* Auth Modals */}
+      {showSetupModal && (
+          <SetupPinModal onSuccess={handlePinSetupSuccess} />
+      )}
+      {showPinEntryModal && (
+          <PinEntryModal
+              onSuccess={handlePinEntrySuccess}
+              onCancel={() => {
+                  setShowPinEntryModal(false);
+                  setPendingConnectProfileId(null);
+                  setPendingSaveProfiles(null);
+              }}
+            />
+      )}
+
       {/* Sidebar */}
       <ConnectionManager 
         profiles={profiles}
         activeProfileId={activeProfileId}
+        connectedProfileId={connectedProfileId}
         connectionStatus={connectionStatus}
         onSelectProfile={setActiveProfileId}
-        onSaveProfile={handleAddProfile}
+        onSaveProfile={handleSaveProfile}
         onDeleteProfile={handleDeleteProfile}
         onConnect={handleConnect}
         onDisconnect={handleDisconnect}
@@ -509,7 +657,7 @@ const App: React.FC = () => {
                     {isThinking ? (
                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
                     ) : (
-                        <Sparkles size={18} className="text-blue-500" />
+                        <div className="text-gray-500 font-mono text-lg">{'>'}</div>
                     )}
                   </div>
 
@@ -524,11 +672,14 @@ const App: React.FC = () => {
                             handleInputSubmit();
                         }
                     }}
-                    disabled={!isConnected || !!backendError} // Disable input if not connected
+                    disabled={(!isConnected && inputMode !== 'ai') || !!backendError} // Disable direct input if not connected, but allow AI input
                     className={`
                       w-full text-sm rounded-lg pl-10 pr-12 py-3 outline-none shadow-sm transition-colors
                       disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-800/50
-                      bg-gray-800 border border-gray-700 text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-500
+                      ${inputMode === 'direct'
+                          ? 'bg-gray-800 border border-green-700/50 text-green-100 focus:ring-2 focus:ring-green-500 focus:border-transparent placeholder-gray-500'
+                          : 'bg-gray-800 border border-gray-700 text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-500'
+                      }
                     `}
                     placeholder={
                         !!backendError
@@ -537,16 +688,20 @@ const App: React.FC = () => {
                                 ? "Select a profile to start..."
                                 : !isConnected
                                       ? "Connect to server to run commands..."
-                                      : "Describe a task for AI to generate appropriate commands"
+                                      : inputMode === 'direct'
+                                        ? `Send a command to ${activeProfile.host}...`
+                                        : `Describe a task for ${activeProfile.host}...`
                     }
                   />
 
                   <button
                     onClick={handleInputSubmit}
-                    disabled={!input.trim() || isThinking || !isConnected || !!backendError}
+                    disabled={!input.trim() || isThinking || (!isConnected && inputMode !== 'ai') || !!backendError}
                     className={`
                       absolute inset-y-1 right-1 p-2 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed
-                      text-gray-400 hover:text-white hover:bg-gray-700
+                      ${inputMode === 'direct'
+                          ? 'text-green-500 hover:bg-green-900/30'
+                          : 'text-gray-400 hover:text-white hover:bg-gray-700'}
                     `}
                   >
                     <Send size={18} />
@@ -585,8 +740,23 @@ const App: React.FC = () => {
                              )}
                         </div>
                     ) : (
-                        // Spacer to reserve layout space (approx width of previous toggle buttons)
-                        <div className="w-[140px] hidden md:block"></div>
+                        // Input Mode Toggle
+                         <div className="bg-gray-800 p-1 rounded-lg flex text-xs font-medium border border-gray-700 h-[42px] items-center">
+                            <button
+                            onClick={() => {
+                                setInputMode('ai');
+                            }}
+                            className={`px-3 py-1.5 rounded flex items-center gap-2 transition-colors h-full ${inputMode === 'ai' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-gray-200'}`}
+                            >
+                            <Sparkles size={14} /> AI
+                            </button>
+                            <button
+                            onClick={() => setInputMode('direct')}
+                            className={`px-3 py-1.5 rounded flex items-center gap-2 transition-colors h-full ${inputMode === 'direct' ? 'bg-green-600 text-white' : 'text-gray-400 hover:text-gray-200'}`}
+                            >
+                            <TerminalIcon size={14} /> Direct
+                            </button>
+                        </div>
                     )}
                 </div>
 
