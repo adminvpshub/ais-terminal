@@ -146,7 +146,13 @@ io.on('connection', (socket) => {
 
                 // Note: Data can come in chunks. Splitting markers across chunks is a risk.
                 // For simplicity in this MVP, we'll scan the string.
-                const str = data.toString();
+                let str = data.toString();
+
+                // Hide echoed command marker from output
+                // Matches: ; echo "___CMD_DONE:$?___"
+                const echoRegex = /;\s*echo\s+"___CMD_DONE:\$\?___"/g;
+                str = str.replace(echoRegex, '');
+
                 const markerRegex = /___CMD_DONE:(\d+)___(\r\n|\n)?/;
                 const match = str.match(markerRegex);
 
