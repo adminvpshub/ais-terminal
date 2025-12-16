@@ -95,7 +95,17 @@ const App: React.FC = () => {
       })
       .then(data => {
         if (Array.isArray(data)) {
-          setProfiles(data);
+          // Deduplicate profiles by ID, keeping the latest one
+          const seen = new Set();
+          const uniqueProfiles = [];
+          for (let i = data.length - 1; i >= 0; i--) {
+              const p = data[i];
+              if (!seen.has(p.id)) {
+                  seen.add(p.id);
+                  uniqueProfiles.unshift(p);
+              }
+          }
+          setProfiles(uniqueProfiles);
           setBackendError(null);
         }
       })
