@@ -16,8 +16,8 @@ export const SetupPinModal: React.FC<SetupPinModalProps> = ({ onSuccess }) => {
         e.preventDefault();
         setError(null);
 
-        if (pin.length < 4) {
-            setError("PIN must be at least 4 digits.");
+        if (pin.length !== 6) {
+            setError("PIN must be exactly 6 digits.");
             return;
         }
 
@@ -75,7 +75,7 @@ export const SetupPinModal: React.FC<SetupPinModalProps> = ({ onSuccess }) => {
                             value={pin}
                             onChange={(e) => setPin(e.target.value)}
                             className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-white focus:ring-2 focus:ring-blue-500 outline-none text-center tracking-widest text-lg"
-                            placeholder="••••"
+                            placeholder="••••••"
                             autoFocus
                         />
                     </div>
@@ -86,7 +86,7 @@ export const SetupPinModal: React.FC<SetupPinModalProps> = ({ onSuccess }) => {
                             value={confirm}
                             onChange={(e) => setConfirm(e.target.value)}
                             className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-white focus:ring-2 focus:ring-blue-500 outline-none text-center tracking-widest text-lg"
-                            placeholder="••••"
+                            placeholder="••••••"
                         />
                     </div>
 
@@ -167,7 +167,7 @@ export const PinEntryModal: React.FC<PinEntryModalProps> = ({ onSuccess, onCance
                         value={pin}
                         onChange={(e) => setPin(e.target.value)}
                         className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-white focus:ring-2 focus:ring-blue-500 outline-none text-center tracking-widest text-lg"
-                        placeholder="••••"
+                        placeholder="••••••"
                         autoFocus
                     />
 

@@ -46,8 +46,8 @@ app.get('/auth/status', async (req, res) => {
 // Setup Master PIN (and migrate existing profiles)
 app.post('/auth/setup', async (req, res) => {
     const { pin } = req.body;
-    if (!pin || pin.length < 4) {
-        return res.status(400).json({ error: "PIN must be at least 4 characters" });
+    if (!pin || pin.length !== 6) {
+        return res.status(400).json({ error: "PIN must be exactly 6 digits" });
     }
 
     try {
