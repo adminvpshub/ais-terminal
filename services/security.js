@@ -110,3 +110,19 @@ export async function decrypt(encryptedText, pin) {
 
     return decrypted;
 }
+
+/**
+ * Checks if the text appears to be encrypted.
+ * @param {string} text
+ * @returns {boolean}
+ */
+export function isEncrypted(text) {
+    if (!text || typeof text !== 'string') return false;
+    // Format: hex:hex:hex:hex
+    // Hex regex: [0-9a-f]+
+    const parts = text.split(':');
+    if (parts.length !== 4) return false;
+    // Check if all parts are hex
+    const hexRegex = /^[0-9a-fA-F]+$/;
+    return parts.every(p => hexRegex.test(p));
+}

@@ -6,7 +6,7 @@ import cors from 'cors';
 import fs from 'fs/promises';
 import path, { dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { hashPin, verifyPin, encrypt, decrypt } from './services/security.js';
+import { hashPin, verifyPin, encrypt, decrypt, isEncrypted } from './services/security.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -74,11 +74,18 @@ app.post('/auth/setup', async (req, res) => {
 
         if (Array.isArray(profiles) && profiles.length > 0) {
             const encryptedProfiles = await Promise.all(profiles.map(async (p) => {
-                // Only encrypt if it looks like a plain text key (not already encrypted)
-                // Our encrypted format contains ':', so we can check for that, or just blindly encrypt
-                // assuming migration happens once.
-                // However, keys also have ':' sometimes.
-                // Better strategy: We know this is the *initial* setup. So all current keys are plain text.
+                // Check if already encrypted (e.g. from previous PIN setup)
+                // If so, we can't decrypt it because we don't have the old PIN.
+                // We must wipe it to prevent double-encryption corruption.
+                if (isEncrypted(p.privateKey)) {
+                    console.warn(`Profile ${p.id} appears to be encrypted. Clearing private key during reset.`);
+                    return {
+                        ...p,
+                        privateKey: "", // Wipe invalid key
+                        passphrase: isEncrypted(p.passphrase) ? "" : p.passphrase
+                    };
+                }
+
                 const encKey = await encrypt(p.privateKey, pin);
                 const encPass = p.passphrase ? await encrypt(p.passphrase, pin) : undefined;
                 return {
