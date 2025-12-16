@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { SSHProfile, LinuxDistro, ConnectionStatus } from '../types';
 import { Button } from './Button';
 import { Server, Plus, Trash2, Download, Save, Eye, EyeOff, Plug, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
@@ -27,6 +27,12 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
   const [isEditing, setIsEditing] = useState(false);
   const [showKey, setShowKey] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
+
+  useEffect(() => {
+    if (connectionStatus === ConnectionStatus.Connected) {
+      setIsCollapsed(true);
+    }
+  }, [connectionStatus]);
   
   // Form State
   const [name, setName] = useState('');
