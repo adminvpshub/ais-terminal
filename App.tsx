@@ -775,7 +775,10 @@ const App: React.FC = () => {
                    The command failed. AI suggests a fix:
                 </p>
 
-                <div className="bg-black/50 p-3 rounded font-mono text-green-400 text-sm mb-3 border border-gray-700/50">
+                <div
+                    className="bg-black/50 p-3 rounded font-mono text-green-400 mb-3 border border-gray-700/50"
+                    style={{ fontSize: `${fontSize}px` }}
+                >
                   {suggestedFix.command}
                 </div>
                 

@@ -334,7 +334,13 @@ io.on('connection', (socket) => {
                 socket.emit('ssh:status', 'connected');
 
                 stream.on('data', (data) => {
-                    const str = data.toString();
+                    let str = data.toString();
+
+                    // Hide echoed command marker from output
+                    // Matches: ; echo "___CMD_DONE:$?___"
+                    const echoRegex = /;\s*echo\s+"___CMD_DONE:\$\?___"/g;
+                    str = str.replace(echoRegex, '');
+
                     const markerRegex = /___CMD_DONE:(\d+)___(\r\n|\n)?/;
                     const match = str.match(markerRegex);
                     if (match) {
