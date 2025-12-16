@@ -15,9 +15,17 @@ def verify_auth_flow():
             page.screenshot(path="verification/1_setup_modal.png")
             print("Setup Modal detected. Screenshot taken.")
 
-            # Fill PIN
-            page.fill("input[placeholder='••••'] >> nth=0", "1234")
-            page.fill("input[placeholder='••••'] >> nth=1", "1234")
+            # Fill PIN (Must be 6 digits now)
+            # Testing invalid input first
+            page.fill("input[placeholder='••••••'] >> nth=0", "1234")
+            page.fill("input[placeholder='••••••'] >> nth=1", "1234")
+            page.click("button:has-text('Set Master PIN')")
+            page.wait_for_selector("text=PIN must be exactly 6 digits")
+            print("Verified 6-digit validation.")
+
+            # Fill valid PIN
+            page.fill("input[placeholder='••••••'] >> nth=0", "123456")
+            page.fill("input[placeholder='••••••'] >> nth=1", "123456")
 
             # Submit
             page.click("button:has-text('Set Master PIN')")
@@ -25,8 +33,9 @@ def verify_auth_flow():
             # Wait for modal to close (it should disappear)
             page.wait_for_selector("text=Setup Security PIN", state="hidden")
             print("Setup completed.")
-        except:
-            print("Setup Modal not found (maybe already set up?). Proceeding.")
+        except Exception as e:
+            print(f"Setup Modal not found or interaction failed: {e}")
+            # If not found, maybe we are already setup (e.g. if script re-runs without reset)
 
         # Take main screen shot
         page.screenshot(path="verification/2_main_screen.png")
@@ -42,8 +51,6 @@ def verify_auth_flow():
         page.click("text=Prod Server")
 
         # Click connect on first profile
-        # The Connect button appears inside the selected profile card.
-        # It has text "Connect" and an icon.
         print("Clicking Connect...")
         page.click("button:has-text('Connect')")
 
@@ -54,22 +61,20 @@ def verify_auth_flow():
         print("PIN Entry Modal detected. Screenshot taken.")
 
         # Enter wrong PIN first
-        page.fill("input[placeholder='••••']", "0000")
+        page.fill("input[placeholder='••••••']", "000000")
         page.click("button:has-text('Unlock')")
         page.wait_for_selector("text=Incorrect PIN")
         page.screenshot(path="verification/4_pin_error.png")
 
         # Enter correct PIN
-        page.fill("input[placeholder='••••']", "1234")
+        page.fill("input[placeholder='••••••']", "123456")
         page.click("button:has-text('Unlock')")
 
         # Wait for modal to close
         page.wait_for_selector("text=Enter Master PIN", state="hidden")
         print("PIN verified.")
 
-        # Verify Connection starts (we won't actually connect because backend SSH will fail without real creds/network, but UI should update)
-        # We expect "Connecting..." or similar
-
+        # Verify Connection starts
         page.screenshot(path="verification/5_connecting.png")
 
         browser.close()
