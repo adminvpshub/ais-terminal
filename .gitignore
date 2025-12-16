@@ -24,3 +24,4 @@ ssh_profiles.json
 *.sln
 *.sw?
 package-lock.json
+security.json
