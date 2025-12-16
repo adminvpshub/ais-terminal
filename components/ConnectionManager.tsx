@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { SSHProfile, LinuxDistro, ConnectionStatus } from '../types';
 import { Button } from './Button';
-import { Server, Plus, Trash2, Download, Save, Eye, EyeOff, Plug, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { Server, Plus, Trash2, Download, Save, Eye, EyeOff, Plug, PanelLeftClose, PanelLeftOpen, Pencil } from 'lucide-react';
 
 interface ConnectionManagerProps {
   profiles: SSHProfile[];
@@ -27,6 +27,7 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
   onDisconnect
 }) => {
   const [isEditing, setIsEditing] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [showKey, setShowKey] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   
@@ -43,22 +44,33 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
     setUsername('root');
     setPrivateKey('');
     setPassphrase('');
+    setEditingId(null);
     setIsEditing(false);
+  };
+
+  const handleEdit = (profile: SSHProfile) => {
+    setEditingId(profile.id);
+    setName(profile.name);
+    setHost(profile.host);
+    setUsername(profile.username);
+    setPrivateKey(''); // Always clear key field for security/simplicity. Empty = keep existing.
+    setPassphrase(''); // Clear passphrase field. Empty = keep existing.
+    setIsEditing(true);
   };
 
   const handleSave = () => {
     if (!name || !host) return;
     
-    const newProfile: SSHProfile = {
-      id: crypto.randomUUID(),
+    const profileData: SSHProfile = {
+      id: editingId || crypto.randomUUID(),
       name,
       host,
       username,
-      privateKey,
-      passphrase: passphrase || undefined,
+      privateKey, // If empty string, backend logic preserves existing key
+      passphrase: passphrase || undefined, // If empty/undefined, backend preserves existing
     };
     
-    onSaveProfile(newProfile);
+    onSaveProfile(profileData);
     resetForm();
   };
 
@@ -163,7 +175,7 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
                 value={privateKey} 
                 onChange={(e) => setPrivateKey(e.target.value)} 
                 className={`w-full bg-gray-900 border border-gray-600 rounded px-2 py-1 text-xs text-gray-300 focus:ring-1 focus:ring-blue-500 outline-none font-mono ${showKey ? '' : 'text-security-disc'}`}
-                placeholder="-----BEGIN OPENSSH PRIVATE KEY-----"
+                placeholder={editingId ? "Leave blank to keep existing key" : "-----BEGIN OPENSSH PRIVATE KEY-----"}
                 rows={3}
                 style={!showKey ? { WebkitTextSecurity: 'disc' } as any : {}}
               />
@@ -176,7 +188,7 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
                 value={passphrase} 
                 onChange={(e) => setPassphrase(e.target.value)} 
                 className="w-full bg-gray-900 border border-gray-600 rounded px-2 py-1 text-sm text-white focus:ring-1 focus:ring-blue-500 outline-none"
-                placeholder="Key Passphrase"
+                placeholder={editingId ? "Leave blank to keep existing" : "Key Passphrase"}
               />
             </div>
 
@@ -239,12 +251,22 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
                 </div>
                 
                 <div className="flex flex-col items-end gap-2">
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); onDeleteProfile(profile.id); }}
-                    className="opacity-0 group-hover:opacity-100 p-1.5 text-gray-500 hover:text-red-400 transition-opacity"
-                  >
-                    <Trash2 size={14} />
-                  </button>
+                  <div className="opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity">
+                    <button
+                        onClick={(e) => { e.stopPropagation(); handleEdit(profile); }}
+                        className="p-1.5 text-gray-500 hover:text-blue-400"
+                        title="Edit Connection"
+                    >
+                        <Pencil size={14} />
+                    </button>
+                    <button
+                        onClick={(e) => { e.stopPropagation(); onDeleteProfile(profile.id); }}
+                        className="p-1.5 text-gray-500 hover:text-red-400"
+                        title="Delete Connection"
+                    >
+                        <Trash2 size={14} />
+                    </button>
+                  </div>
                 </div>
               </div>
               
