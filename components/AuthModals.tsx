@@ -56,7 +56,7 @@ export const SetupPinModal: React.FC<SetupPinModalProps> = ({ onSuccess }) => {
                     </div>
                     <h2 className="text-xl font-bold text-gray-100">Setup Security PIN</h2>
                     <p className="text-sm text-gray-400 text-center mt-2">
-                        To secure your SSH keys, please create a master PIN. You will need this PIN to connect to servers.
+                        To secure your SSH keys, please create a master 6-digit PIN. You will need this PIN to connect to servers.
                     </p>
                 </div>
 
@@ -73,10 +73,11 @@ export const SetupPinModal: React.FC<SetupPinModalProps> = ({ onSuccess }) => {
                         <input
                             type="password"
                             value={pin}
-                            onChange={(e) => setPin(e.target.value)}
+                            onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
                             className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-white focus:ring-2 focus:ring-blue-500 outline-none text-center tracking-widest text-lg"
                             placeholder="••••••"
                             autoFocus
+                            maxLength={6}
                         />
                     </div>
                     <div>
@@ -84,9 +85,10 @@ export const SetupPinModal: React.FC<SetupPinModalProps> = ({ onSuccess }) => {
                         <input
                             type="password"
                             value={confirm}
-                            onChange={(e) => setConfirm(e.target.value)}
+                            onChange={(e) => setConfirm(e.target.value.replace(/\D/g, '').slice(0, 6))}
                             className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-white focus:ring-2 focus:ring-blue-500 outline-none text-center tracking-widest text-lg"
                             placeholder="••••••"
+                            maxLength={6}
                         />
                     </div>
 
@@ -151,7 +153,7 @@ export const PinEntryModal: React.FC<PinEntryModalProps> = ({ onSuccess, onCance
                     </div>
                     <h2 className="text-lg font-bold text-gray-100">Enter Master PIN</h2>
                     <p className="text-xs text-gray-400 text-center mt-1">
-                        Please enter your PIN to unlock SSH keys.
+                        Please enter your 6-digit PIN to unlock SSH keys.
                     </p>
                 </div>
 
@@ -165,10 +167,11 @@ export const PinEntryModal: React.FC<PinEntryModalProps> = ({ onSuccess, onCance
                     <input
                         type="password"
                         value={pin}
-                        onChange={(e) => setPin(e.target.value)}
+                        onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
                         className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-white focus:ring-2 focus:ring-blue-500 outline-none text-center tracking-widest text-lg"
                         placeholder="••••••"
                         autoFocus
+                        maxLength={6}
                     />
 
                     <div className="flex gap-2">
