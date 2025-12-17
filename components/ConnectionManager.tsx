@@ -278,7 +278,7 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
               
               {isActive && (
                 <div className="mt-3 pt-2 border-t border-gray-700/50 flex gap-2">
-                   {isConnected ? (
+                   {isConnected && isConnectedProfile ? (
                      <Button 
                        size="sm" 
                        variant="danger" 
