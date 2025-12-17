@@ -65,7 +65,6 @@ export const Terminal: React.FC<TerminalProps> = ({ socket, fontSize }) => {
         
         const onStatus = (status: string) => {
              if (status === 'connected') {
-                 term.clear();
                  term.write('\r\n\x1b[32m✔ Connected\x1b[0m\r\n');
                  term.focus();
              } else if (status === 'disconnected') {

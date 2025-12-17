@@ -12,8 +12,8 @@ export interface SSHProfile {
   name: string;
   host: string;
   username: string;
-  privateKey: string | boolean; // boolean if masked from backend
-  passphrase?: string | boolean;
+  privateKey: string;
+  passphrase?: string;
   // distro field is removed as it is now auto-detected
 }
 
