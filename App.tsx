@@ -4,7 +4,8 @@ import { Terminal } from './components/Terminal';
 import { Button } from './components/Button';
 import { TaskSidebar } from './components/TaskSidebar';
 import { SetupPinModal, PinEntryModal } from './components/AuthModals';
-import { SSHProfile, TerminalEntry, CommandGenerationResult, ConnectionStatus, CommandStep, CommandStatus } from './types';
+import { SuggestionModal } from './components/SuggestionModal';
+import { SSHProfile, TerminalEntry, CommandGenerationResult, ConnectionStatus, CommandStep, CommandStatus, CommandFix } from './types';
 import { generateLinuxCommand, generateCommandFix } from './services/geminiService';
 import { socket, connectSocket } from './services/sshService';
 import { SAMPLE_PROMPTS } from './constants';
@@ -34,7 +35,7 @@ const App: React.FC = () => {
   const [activeStepId, setActiveStepId] = useState<string | null>(null);
   const [executionState, setExecutionState] = useState<'idle' | 'running' | 'paused' | 'error'>('idle');
   const [runMode, setRunMode] = useState<'all' | 'single'>('all'); // Track execution mode
-  const [suggestedFix, setSuggestedFix] = useState<CommandStep | null>(null);
+  const [suggestedFix, setSuggestedFix] = useState<CommandFix | null>(null);
   const [currentOutput, setCurrentOutput] = useState(''); // Accumulate output for fix generation
 
   const [isThinking, setIsThinking] = useState(false);
@@ -275,7 +276,10 @@ const App: React.FC = () => {
        }, 50);
 
     } else {
-       // Error
+       // Error or Empty output
+       // Note: "Empty output" with exit code 0 is success (above block).
+       // "Empty output" with exit code != 0 falls here.
+
        updateStepStatus(activeStep.id, CommandStatus.Error);
        setExecutionState('error');
 
@@ -741,44 +745,15 @@ const App: React.FC = () => {
 
             </div>
 
-            {/* Fix Suggestion Card */}
+            {/* Fix Suggestion Modal */}
             {suggestedFix && (
-              <div className="bg-gray-800/90 backdrop-blur-sm border border-red-500/30 rounded-lg p-4 shadow-xl animate-in slide-in-from-bottom-2 mt-2">
-                <div className="flex justify-between items-start mb-2">
-                  <h3 className="text-sm font-semibold text-red-400 uppercase tracking-wider flex items-center gap-2">
-                    <AlertTriangle size={14}/> Execution Error
-                  </h3>
-                </div>
-                
-                <p className="text-gray-300 text-sm mb-3">
-                   The command failed. AI suggests a fix:
-                </p>
-
-                <div
-                    className="bg-black/50 p-3 rounded font-mono text-green-400 mb-3 border border-gray-700/50"
-                    style={{ fontSize: `${fontSize}px` }}
-                >
-                  {suggestedFix.command}
-                </div>
-                
-                <p className="text-gray-400 text-sm mb-4">
-                  <span className="text-gray-500 font-medium">Reasoning:</span> {suggestedFix.explanation}
-                </p>
-
-                <div className="flex justify-end gap-3">
-                  <Button variant="ghost" size="sm" onClick={handleAbort}>Abort</Button>
-                  <Button variant="secondary" size="sm" onClick={skipStep}>
-                     <SkipForward size={14} className="mr-2"/> Skip Step
-                  </Button>
-                  <Button 
-                    variant={suggestedFix.dangerous ? 'danger' : 'primary'}
-                    size="sm" 
-                    onClick={applyFix}
-                  >
-                    <RefreshCw size={14} className="mr-2"/> Apply Fix
-                  </Button>
-                </div>
-              </div>
+              <SuggestionModal
+                suggestion={suggestedFix}
+                fontSize={fontSize}
+                onApply={applyFix}
+                onSkip={skipStep}
+                onAbort={handleAbort}
+              />
             )}
 
             {/* Quick Prompts */}

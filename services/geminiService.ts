@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { CommandGenerationResult, LinuxDistro, CommandStep, CommandStatus } from "../types";
+import { CommandGenerationResult, LinuxDistro, CommandStep, CommandStatus, CommandFix } from "../types";
 
 // NOTE: In a production app, the key would be securely managed.
 // For this frontend-only demo, we assume process.env.API_KEY is available.
@@ -78,15 +78,21 @@ export const generateCommandFix = async (
   command: string,
   errorOutput: string,
   distro: LinuxDistro
-): Promise<CommandStep> => {
+): Promise<CommandFix> => {
   try {
     const prompt = `
       You are an expert Linux System Administrator.
-      A command failed with an error. Please suggest a fix.
+      A command executed with a non-zero exit code. Please suggest a fix or next steps.
 
       OS: ${distro}
-      Failed Command: "${command}"
-      Error Output: "${errorOutput}"
+      Executed Command: "${command}"
+      Output (stderr/stdout): "${errorOutput || '(No output returned)'}"
+
+      Requirements:
+      1. Analyze the output (if any) to determine if this is a critical ERROR (e.g. syntax error, missing permission, missing package) or just a SUGGESTION/INFO (e.g. command returned empty but failed, or returned warning text that isn't a hard stop).
+      2. If the output is empty, treat it as a 'suggestion' and suggest what to do next or how to verify the result.
+      3. Provide a corrected command or a next logical step.
+      4. Set 'classification' to 'error' if it's a hard failure, or 'suggestion' if it's benign or informational.
 
       Provide a corrected command that addresses the error.
       If the error implies a missing dependency or prerequisite, provide that command instead (or chained).
@@ -103,8 +109,9 @@ export const generateCommandFix = async (
               command: { type: Type.STRING, description: "The corrected Linux shell command" },
               explanation: { type: Type.STRING, description: "Why this fix works" },
               dangerous: { type: Type.BOOLEAN, description: "True if dangerous" },
+              classification: { type: Type.STRING, enum: ["error", "suggestion"], description: "Classify as 'error' or 'suggestion'" }
             },
-            required: ["command", "explanation", "dangerous"],
+            required: ["command", "explanation", "dangerous", "classification"],
         },
       },
     });
