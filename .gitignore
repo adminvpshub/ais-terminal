@@ -26,3 +26,4 @@ sessions
 *.sln
 *.sw?
 package-lock.json
+ssh_profiles.json
