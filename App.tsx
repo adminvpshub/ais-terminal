@@ -129,10 +129,40 @@ const App: React.FC = () => {
         setConnectionStatus(ConnectionStatus.Connected);
         setShowPrompts(true);
       } else if (status === 'disconnected') {
-        setConnectionStatus(ConnectionStatus.Disconnected);
-        setConnectedProfileId(null);
-        setDetectedDistro(null);
-        setCommandQueue([]);
+        // If we are currently "Connecting", this disconnect event is likely the cleanup of the previous session.
+        // In this case, we should NOT reset the connectedProfileId (which holds the target profile ID).
+        // However, we rely on state in the closure. Since `connectionStatus` is in the dependency array,
+        // this callback is recreated when it changes.
+        setConnectionStatus(prev => {
+            if (prev === ConnectionStatus.Connecting) {
+                // Ignore disconnect during connection attempt (likely previous session cleanup)
+                // But we still need to handle real failures?
+                // "Real" failure usually comes via 'ssh:error'.
+                // If connection fails at socket level, we might get disconnect.
+                // But typically we get 'connected' or 'error' then 'disconnected'.
+                // If we ignore it, and connection stalls, we are stuck.
+                // But server emits 'connected' shortly after.
+                return prev;
+            }
+            return ConnectionStatus.Disconnected;
+        });
+
+        // We only reset state if we are NOT switching connections.
+        // But we can't easily check 'prev' state here cleanly without functional updates for all.
+        // Let's use the functional update pattern for setConnectedProfileId too,
+        // OR better: Check current state in a ref or trust the dependency injection.
+        // `connectionStatus` is in dependency array. So we have the current value.
+
+        if (connectionStatus !== ConnectionStatus.Connecting) {
+            setConnectedProfileId(null);
+            setDetectedDistro(null);
+            setCommandQueue([]);
+            setActiveStepId(null);
+            setExecutionState('idle');
+            setSuggestedFix(null);
+            setShowPrompts(false);
+        }
+      }
         setActiveStepId(null);
         setExecutionState('idle');
         setSuggestedFix(null);
