@@ -163,11 +163,6 @@ const App: React.FC = () => {
             setShowPrompts(false);
         }
       }
-        setActiveStepId(null);
-        setExecutionState('idle');
-        setSuggestedFix(null);
-        setShowPrompts(false);
-      }
     };
 
     const onDistro = (distro: string) => {
