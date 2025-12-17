@@ -224,7 +224,7 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
                 >
                     <Server size={20} />
                     {isConnectedProfile && isConnected && (
-                        <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-green-400 rounded-full border-2 border-gray-800 animate-pulse shadow-[0_0_8px_rgba(74,222,128,0.6)]"></span>
+                        <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-gray-800 animate-pulse"></span>
                     )}
                 </div>
               );
@@ -248,7 +248,7 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
                       {profile.name}
                     </div>
                     {isConnectedProfile && isConnected && (
-                      <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse shadow-[0_0_8px_rgba(74,222,128,0.6)]"></span>
+                      <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
                     )}
                   </div>
                   <div className="text-xs text-gray-500 font-mono mt-0.5 truncate">
@@ -278,7 +278,7 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
               
               {isActive && (
                 <div className="mt-3 pt-2 border-t border-gray-700/50 flex gap-2">
-                   {isConnected && isConnectedProfile ? (
+                   {isConnected ? (
                      <Button 
                        size="sm" 
                        variant="danger" 
