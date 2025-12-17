@@ -38,7 +38,6 @@ const App: React.FC = () => {
   const [currentOutput, setCurrentOutput] = useState(''); // Accumulate output for fix generation
 
   const [isThinking, setIsThinking] = useState(false);
-  const [inputMode, setInputMode] = useState<'ai' | 'direct'>('ai');
   const [backendError, setBackendError] = useState<string | null>(null);
 
   // Auth State
@@ -473,12 +472,6 @@ const App: React.FC = () => {
   const handleInputSubmit = async () => {
     if (!input.trim()) return;
 
-    if (inputMode === 'direct') {
-      setShowPrompts(false);
-      runDirectCommand(input);
-      return;
-    }
-
     // Context for AI commands comes from the CONNECTED profile if connected
     const profile = getContextProfile();
     if (!profile) return;
@@ -498,13 +491,6 @@ const App: React.FC = () => {
     } finally {
       setIsThinking(false);
     }
-  };
-
-  const runDirectCommand = (cmd: string) => {
-    if (connectionStatus !== ConnectionStatus.Connected) return;
-    socket.emit('ssh:execute', cmd);
-    setInput('');
-    setTimeout(() => inputRef.current?.focus(), 100);
   };
 
   const applyFix = () => {
@@ -657,7 +643,7 @@ const App: React.FC = () => {
                     {isThinking ? (
                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
                     ) : (
-                        <div className="text-gray-500 font-mono text-lg">{'>'}</div>
+                        <Sparkles size={18} className="text-blue-500" />
                     )}
                   </div>
 
@@ -672,15 +658,8 @@ const App: React.FC = () => {
                             handleInputSubmit();
                         }
                     }}
-                    disabled={(!isConnected && inputMode !== 'ai') || !!backendError} // Disable direct input if not connected, but allow AI input
-                    className={`
-                      w-full text-sm rounded-lg pl-10 pr-12 py-3 outline-none shadow-sm transition-colors
-                      disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-800/50
-                      ${inputMode === 'direct'
-                          ? 'bg-gray-800 border border-green-700/50 text-green-100 focus:ring-2 focus:ring-green-500 focus:border-transparent placeholder-gray-500'
-                          : 'bg-gray-800 border border-gray-700 text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-500'
-                      }
-                    `}
+                    disabled={!isConnected || !!backendError}
+                    className="w-full text-sm rounded-lg pl-10 pr-12 py-3 outline-none shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-800/50 bg-gray-800 border border-gray-700 text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-500"
                     placeholder={
                         !!backendError
                             ? "Backend server disconnected"
@@ -688,29 +667,22 @@ const App: React.FC = () => {
                                 ? "Select a profile to start..."
                                 : !isConnected
                                       ? "Connect to server to run commands..."
-                                      : inputMode === 'direct'
-                                        ? `Send a command to ${activeProfile.host}...`
-                                        : `Describe a task for ${activeProfile.host}...`
+                                      : "Describe a task for AI to get a list of commands"
                     }
                   />
 
                   <button
                     onClick={handleInputSubmit}
-                    disabled={!input.trim() || isThinking || (!isConnected && inputMode !== 'ai') || !!backendError}
-                    className={`
-                      absolute inset-y-1 right-1 p-2 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed
-                      ${inputMode === 'direct'
-                          ? 'text-green-500 hover:bg-green-900/30'
-                          : 'text-gray-400 hover:text-white hover:bg-gray-700'}
-                    `}
+                    disabled={!input.trim() || isThinking || !isConnected || !!backendError}
+                    className="absolute inset-y-1 right-1 p-2 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-gray-400 hover:text-white hover:bg-gray-700"
                   >
                     <Send size={18} />
                   </button>
                 </div>
 
-                {/* Execution Controls (Only show if queue active or input mode toggle needed) */}
-                <div className="flex-shrink-0 flex items-center gap-2">
-                    {commandQueue.length > 0 && !suggestedFix ? (
+                {/* Execution Controls (Only show if queue active) */}
+                {(commandQueue.length > 0 && !suggestedFix) && (
+                    <div className="flex-shrink-0 flex items-center gap-2">
                         <div className="flex items-center gap-2 bg-gray-800/50 p-1.5 rounded-lg border border-gray-700">
                              <div className="text-xs text-gray-400 px-2 hidden lg:block">
                                 {executionState === 'running' ? (
@@ -739,26 +711,8 @@ const App: React.FC = () => {
                                  </>
                              )}
                         </div>
-                    ) : (
-                        // Input Mode Toggle
-                         <div className="bg-gray-800 p-1 rounded-lg flex text-xs font-medium border border-gray-700 h-[42px] items-center">
-                            <button
-                            onClick={() => {
-                                setInputMode('ai');
-                            }}
-                            className={`px-3 py-1.5 rounded flex items-center gap-2 transition-colors h-full ${inputMode === 'ai' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-gray-200'}`}
-                            >
-                            <Sparkles size={14} /> AI
-                            </button>
-                            <button
-                            onClick={() => setInputMode('direct')}
-                            className={`px-3 py-1.5 rounded flex items-center gap-2 transition-colors h-full ${inputMode === 'direct' ? 'bg-green-600 text-white' : 'text-gray-400 hover:text-gray-200'}`}
-                            >
-                            <TerminalIcon size={14} /> Direct
-                            </button>
-                        </div>
-                    )}
-                </div>
+                    </div>
+                )}
 
             </div>
 
