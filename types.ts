@@ -40,6 +40,10 @@ export interface CommandStep {
   status: CommandStatus;
 }
 
+export interface FixSuggestion extends CommandStep {
+  classification: 'error' | 'suggestion';
+}
+
 export interface CommandGenerationResult {
   steps: CommandStep[];
 }

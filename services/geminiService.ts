@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { CommandGenerationResult, LinuxDistro, CommandStep, CommandStatus } from "../types";
+import { CommandGenerationResult, LinuxDistro, CommandStep, CommandStatus, FixSuggestion } from "../types";
 
 // NOTE: In a production app, the key would be securely managed.
 // For this frontend-only demo, we assume process.env.API_KEY is available.
@@ -78,18 +78,26 @@ export const generateCommandFix = async (
   command: string,
   errorOutput: string,
   distro: LinuxDistro
-): Promise<CommandStep> => {
+): Promise<FixSuggestion> => {
   try {
     const prompt = `
       You are an expert Linux System Administrator.
-      A command failed with an error. Please suggest a fix.
+      A command executed on ${distro} returned a non-zero exit code.
 
-      OS: ${distro}
-      Failed Command: "${command}"
-      Error Output: "${errorOutput}"
+      Command: "${command}"
+      Output: "${errorOutput}"
 
-      Provide a corrected command that addresses the error.
-      If the error implies a missing dependency or prerequisite, provide that command instead (or chained).
+      Task:
+      1. Analyze the output.
+      2. If the output is empty or contains informational text indicating a missing item (e.g., "package not installed") rather than a syntax or permission error, classify this as a "suggestion".
+      3. If the output indicates a hard failure (e.g., "command not found", "permission denied", syntax error), classify as "error".
+      4. Provide the correct command to achieve the likely intent (e.g., install the package if missing).
+
+      Return a JSON object with:
+      - command: The new command to run.
+      - explanation: Reasoning.
+      - dangerous: boolean.
+      - classification: "error" | "suggestion"
     `;
 
     const response = await ai.models.generateContent({
@@ -103,8 +111,9 @@ export const generateCommandFix = async (
               command: { type: Type.STRING, description: "The corrected Linux shell command" },
               explanation: { type: Type.STRING, description: "Why this fix works" },
               dangerous: { type: Type.BOOLEAN, description: "True if dangerous" },
+              classification: { type: Type.STRING, enum: ["error", "suggestion"], description: "Nature of the failure" }
             },
-            required: ["command", "explanation", "dangerous"],
+            required: ["command", "explanation", "dangerous", "classification"],
         },
       },
     });
@@ -113,6 +122,11 @@ export const generateCommandFix = async (
     if (!text) throw new Error("No response from AI");
 
     const parsed = JSON.parse(text);
+
+    // Enforce suggestion classification if output was empty, overriding AI if needed (double safety)
+    if (!errorOutput || errorOutput.trim() === '') {
+        parsed.classification = 'suggestion';
+    }
 
     return {
       ...parsed,
