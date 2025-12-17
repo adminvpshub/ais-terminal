@@ -13,7 +13,7 @@ dist-ssr
 *.local
 ssh_profiles.json
 security.json
-session
+sessions
 
 # Editor directories and files
 .vscode/*
