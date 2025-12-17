@@ -98,7 +98,7 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
       <div className={`p-4 border-b border-gray-700 flex items-center bg-gray-900/50 ${isCollapsed ? 'justify-center' : 'justify-between'}`}>
         {!isCollapsed && (
           <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-            <Server size={18} /> SSH Manager
+            <Server size={18} /> Connections
           </h2>
         )}
 
