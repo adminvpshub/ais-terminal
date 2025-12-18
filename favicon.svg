@@ -1,6 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
-  <rect x="4" y="8" width="56" height="48" rx="6" fill="#0f172a" stroke="#3b82f6" stroke-width="4"/>
-  <path d="M16 24l8 8-8 8" stroke="#22c55e" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-  <rect x="28" y="36" width="16" height="4" fill="#22c55e" class="cursor"/>
-  <path d="M48 16l4-4m-4 4l-4-4m4 4v-4m0 4h4m-4 0h-4" stroke="#38bdf8" stroke-width="2" stroke-linecap="round"/>
+  <!-- Background: Terminal-like dark rect -->
+  <rect x="4" y="4" width="56" height="56" rx="12" fill="#0f172a" stroke="#3b82f6" stroke-width="2"/>
+
+  <!-- CPU / Chip Representation (Blue) -->
+  <rect x="18" y="18" width="28" height="28" rx="4" fill="none" stroke="#3b82f6" stroke-width="3"/>
+  <!-- CPU Pins -->
+  <path d="M32 18V12 M32 52V46 M18 32H12 M52 32H46 M22 18V14 M42 18V14 M22 50V46 M42 50V46 M18 22H14 M18 42H14 M50 22H46 M50 42H46" stroke="#3b82f6" stroke-width="3" stroke-linecap="round"/>
+  <!-- Inner CPU detail -->
+  <rect x="26" y="26" width="12" height="12" fill="#3b82f6" opacity="0.4"/>
+
+  <!-- Large Sparkle (Yellow/Gold) - Bigger as requested -->
+  <path d="M48 16L51 9L54 16L61 19L54 22L51 29L48 22L41 19L48 16Z" fill="#eab308" stroke="#fef08a" stroke-width="1"/>
 </svg>
