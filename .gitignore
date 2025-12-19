@@ -25,4 +25,4 @@ sessions
 *.sln
 *.sw?
 package-lock.json
-
+*.local
