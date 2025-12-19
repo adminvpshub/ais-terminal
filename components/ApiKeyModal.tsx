@@ -28,7 +28,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ onClose }) => {
                     <p className="text-sm text-red-200 text-center leading-relaxed">
                         Your Gemini API Key is invalid.
                         <br/>
-                        Please add a valid key to the <code className="bg-black/50 px-1.5 py-0.5 rounded text-red-100 font-mono text-xs">.env.local</code> file and restart the server.
+                        Please add a valid key to the <code className="bg-black/50 px-1.5 py-0.5 rounded text-red-100 font-mono text-xs">.env.local</code> file.
                     </p>
                 </div>
 
