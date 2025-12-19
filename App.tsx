@@ -5,6 +5,7 @@ import { Button } from './components/Button';
 import { TaskSidebar } from './components/TaskSidebar';
 import { SetupPinModal, PinEntryModal } from './components/AuthModals';
 import { SuggestionModal } from './components/SuggestionModal';
+import { ApiKeyModal } from './components/ApiKeyModal';
 import { SSHProfile, TerminalEntry, CommandGenerationResult, ConnectionStatus, CommandStep, CommandStatus, CommandFix } from './types';
 import { generateLinuxCommand, generateCommandFix } from './services/geminiService';
 import { socket, connectSocket } from './services/sshService';
@@ -40,6 +41,7 @@ const App: React.FC = () => {
 
   const [isThinking, setIsThinking] = useState(false);
   const [backendError, setBackendError] = useState<string | null>(null);
+  const [showApiKeyModal, setShowApiKeyModal] = useState(false);
 
   // Auth State
   const [isPinSetup, setIsPinSetup] = useState<boolean>(true); // Assume true initially to avoid flash
@@ -292,8 +294,12 @@ const App: React.FC = () => {
              // Use the accumulated output 'currentOutput'
              const fix = await generateCommandFix(activeStep.command, currentOutput, detectedDistro || 'Linux');
              setSuggestedFix(fix);
-           } catch (e) {
-             console.error('Failed to generate fix suggestion', e);
+           } catch (e: any) {
+             if (e.message === 'INVALID_API_KEY') {
+                setShowApiKeyModal(true);
+             } else {
+                console.error('Failed to generate fix suggestion', e);
+             }
            } finally {
              setIsThinking(false);
            }
@@ -515,8 +521,12 @@ const App: React.FC = () => {
     try {
       const result = await generateLinuxCommand(input, detectedDistro || 'Linux');
       setCommandQueue(result.steps);
-    } catch (error) {
-      console.error('Command generation failed', error);
+    } catch (error: any) {
+      if (error.message === 'INVALID_API_KEY') {
+          setShowApiKeyModal(true);
+      } else {
+          console.error('Command generation failed', error);
+      }
     } finally {
       setIsThinking(false);
     }
@@ -556,6 +566,9 @@ const App: React.FC = () => {
     <div className="flex h-screen w-full bg-gray-900 text-gray-100 font-sans selection:bg-blue-500/30">
 
       {/* Auth Modals */}
+      {showApiKeyModal && (
+        <ApiKeyModal onClose={() => setShowApiKeyModal(false)} />
+      )}
       {showSetupModal && (
           <SetupPinModal onSuccess={handlePinSetupSuccess} />
       )}
