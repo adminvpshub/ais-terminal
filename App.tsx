@@ -440,6 +440,20 @@ const App: React.FC = () => {
     if (activeProfileId === id) setActiveProfileId(null);
   };
 
+  const handleFactoryReset = async () => {
+    try {
+        const res = await fetch(`${API_URL}/auth/reset`, { method: 'POST' });
+        if (!res.ok) throw new Error("Reset failed");
+
+        // Force a page reload to ensure a completely clean state
+        window.location.reload();
+
+    } catch (err) {
+        console.error("Factory reset failed", err);
+        setBackendError("Failed to reset application. Please check console.");
+    }
+  };
+
   // Returns the profile that provides context for the main area (Header, Input, AI)
   // If connected, it's the connected profile. Otherwise, it's the selected (active) profile.
   const getContextProfile = () => {
@@ -610,6 +624,7 @@ const App: React.FC = () => {
         onDeleteProfile={handleDeleteProfile}
         onConnect={handleConnect}
         onDisconnect={handleDisconnect}
+        onFactoryReset={handleFactoryReset}
       />
 
       {/* Main Content */}

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { SSHProfile, LinuxDistro, ConnectionStatus } from '../types';
 import { Button } from './Button';
-import { Server, Plus, Trash2, Download, Save, Eye, EyeOff, Plug, PanelLeftClose, PanelLeftOpen, Pencil } from 'lucide-react';
+import { ConfirmationModal } from './ConfirmationModal';
+import { Server, Plus, Trash2, Save, Eye, EyeOff, Plug, PanelLeftClose, PanelLeftOpen, Pencil } from 'lucide-react';
 
 interface ConnectionManagerProps {
   profiles: SSHProfile[];
@@ -13,6 +14,7 @@ interface ConnectionManagerProps {
   onDeleteProfile: (id: string) => void;
   onConnect: () => void;
   onDisconnect: () => void;
+  onFactoryReset: () => void;
 }
 
 export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
@@ -24,12 +26,17 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
   onSaveProfile,
   onDeleteProfile,
   onConnect,
-  onDisconnect
+  onDisconnect,
+  onFactoryReset
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showKey, setShowKey] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
+
+  // Modal State
+  const [profileToDelete, setProfileToDelete] = useState<SSHProfile | null>(null);
+  const [showCleanupConfirm, setShowCleanupConfirm] = useState(false);
 
   useEffect(() => {
     if (connectionStatus === ConnectionStatus.Connected) {
@@ -80,21 +87,40 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
     resetForm();
   };
 
-  const handleExport = () => {
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(profiles, null, 2));
-    const downloadAnchorNode = document.createElement('a');
-    downloadAnchorNode.setAttribute("href", dataStr);
-    downloadAnchorNode.setAttribute("download", "ssh_profiles.json");
-    document.body.appendChild(downloadAnchorNode);
-    downloadAnchorNode.click();
-    downloadAnchorNode.remove();
-  };
-
   const isConnected = connectionStatus === ConnectionStatus.Connected;
   const isConnecting = connectionStatus === ConnectionStatus.Connecting;
 
   return (
     <div className={`flex flex-col h-full bg-gray-800 border-r border-gray-700 flex-shrink-0 transition-all duration-300 ${isCollapsed ? 'w-16' : 'w-80'}`}>
+
+      {/* Confirmation Modals */}
+      <ConfirmationModal
+        isOpen={!!profileToDelete}
+        title="Delete Connection"
+        message={`Are you sure you want to delete "${profileToDelete?.name}"? This action cannot be undone.`}
+        confirmLabel="Delete"
+        onConfirm={() => {
+            if (profileToDelete) {
+                onDeleteProfile(profileToDelete.id);
+                setProfileToDelete(null);
+            }
+        }}
+        onCancel={() => setProfileToDelete(null)}
+      />
+
+      <ConfirmationModal
+        isOpen={showCleanupConfirm}
+        title="Cleanup Profiles & Reset"
+        message="This will delete ALL saved connection profiles and reset the Master PIN. The application will be reset to its initial state. This cannot be undone."
+        confirmLabel="Cleanup & Reset"
+        onConfirm={() => {
+            onFactoryReset();
+            setShowCleanupConfirm(false);
+        }}
+        onCancel={() => setShowCleanupConfirm(false)}
+      />
+
+
       <div className={`p-4 border-b border-gray-700 flex items-center bg-gray-900/50 ${isCollapsed ? 'justify-center' : 'justify-between'}`}>
         {!isCollapsed && (
           <h2 className="text-lg font-semibold text-white flex items-center gap-2">
@@ -106,11 +132,11 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
           {!isCollapsed && (
             <>
               <button
-                onClick={handleExport}
-                className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-700 rounded transition-colors"
-                title="Export Profiles"
+                onClick={() => setShowCleanupConfirm(true)}
+                className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-gray-700 rounded transition-colors"
+                title="Cleanup Profiles & Reset"
               >
-                <Download size={16} />
+                <Trash2 size={16} />
               </button>
               <button
                 onClick={() => setIsEditing(true)}
@@ -266,7 +292,10 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
                         <Pencil size={14} />
                     </button>
                     <button
-                        onClick={(e) => { e.stopPropagation(); onDeleteProfile(profile.id); }}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setProfileToDelete(profile);
+                        }}
                         className="p-1.5 text-gray-500 hover:text-red-400"
                         title="Delete Connection"
                     >
