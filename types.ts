@@ -43,3 +43,9 @@ export interface CommandStep {
 export interface CommandGenerationResult {
   steps: CommandStep[];
 }
+
+export type FixType = 'error' | 'suggestion';
+
+export interface CommandFix extends CommandStep {
+  classification: FixType;
+}
