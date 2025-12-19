@@ -138,10 +138,13 @@ app.post('/auth/reset', async (req, res) => {
 
         // Also clean up any session files
         try {
+            // Ensure dir exists before reading
+            await fs.mkdir(SESSIONS_DIR, { recursive: true });
+
             const files = await fs.readdir(SESSIONS_DIR);
             for (const file of files) {
                 if (file.endsWith('.json')) {
-                    await fs.unlink(path.join(SESSIONS_DIR, file));
+                    await fs.unlink(path.join(SESSIONS_DIR, file)).catch(e => console.warn(`Failed to delete session file ${file}:`, e));
                 }
             }
         } catch (e) {

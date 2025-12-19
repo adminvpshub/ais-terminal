@@ -445,25 +445,8 @@ const App: React.FC = () => {
         const res = await fetch(`${API_URL}/auth/reset`, { method: 'POST' });
         if (!res.ok) throw new Error("Reset failed");
 
-        // Reset local state
-        setProfiles([]);
-        setCachedPin(null);
-        setConnectedProfileId(null);
-        setActiveProfileId(null);
-        setCommandQueue([]);
-        setExecutionState('idle');
-        setDetectedDistro(null);
-        setSessionLog('');
-        setInput('');
-
-        // Trigger Setup Mode
-        setIsPinSetup(false);
-        setIsLoginMode(false);
-        setShowSetupModal(true);
-        setShowPinEntryModal(false); // Close login if open
-
-        // Disconnect socket SSH
-        socket.emit('ssh:disconnect');
+        // Force a page reload to ensure a completely clean state
+        window.location.reload();
 
     } catch (err) {
         console.error("Factory reset failed", err);
