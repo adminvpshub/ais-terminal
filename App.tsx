@@ -44,9 +44,11 @@ const App: React.FC = () => {
   const [showApiKeyModal, setShowApiKeyModal] = useState(false);
 
   // Auth State
+  const [isLoadingAuth, setIsLoadingAuth] = useState(true);
   const [isPinSetup, setIsPinSetup] = useState<boolean>(true); // Assume true initially to avoid flash
   const [showSetupModal, setShowSetupModal] = useState(false);
   const [showPinEntryModal, setShowPinEntryModal] = useState(false);
+  const [isLoginMode, setIsLoginMode] = useState(false);
   const [cachedPin, setCachedPin] = useState<string | null>(null);
   const [pendingConnectProfileId, setPendingConnectProfileId] = useState<string | null>(null);
 
@@ -68,9 +70,14 @@ const App: React.FC = () => {
             setIsPinSetup(data.isSetup);
             if (!data.isSetup) {
                 setShowSetupModal(true);
+            } else {
+                // If setup, we force a "login"
+                setIsLoginMode(true);
+                setShowPinEntryModal(true);
             }
         })
-        .catch(err => console.error("Auth check failed", err));
+        .catch(err => console.error("Auth check failed", err))
+        .finally(() => setIsLoadingAuth(false));
 
     // Load font size
     const savedFontSize = localStorage.getItem('terminal_font_size');
@@ -473,7 +480,8 @@ const App: React.FC = () => {
       });
   };
 
-  const handlePinSetupSuccess = () => {
+  const handlePinSetupSuccess = (pin: string) => {
+      setCachedPin(pin);
       setShowSetupModal(false);
       setIsPinSetup(true);
       // Reload profiles to ensure we have the encrypted versions (though frontend just sees masks)
@@ -483,6 +491,7 @@ const App: React.FC = () => {
   const handlePinEntrySuccess = (pin: string) => {
       setCachedPin(pin);
       setShowPinEntryModal(false);
+      setIsLoginMode(false);
 
       // Handle pending actions
       if (pendingConnectProfileId) {
@@ -580,7 +589,14 @@ const App: React.FC = () => {
                   setPendingConnectProfileId(null);
                   setPendingSaveProfiles(null);
               }}
+              canCancel={!isLoginMode}
             />
+      )}
+
+      {isLoadingAuth && (
+          <div className="fixed inset-0 z-50 bg-gray-900 flex items-center justify-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+          </div>
       )}
 
       {/* Sidebar */}
