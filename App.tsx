@@ -6,6 +6,7 @@ import { TaskSidebar } from './components/TaskSidebar';
 import { SetupPinModal, PinEntryModal } from './components/AuthModals';
 import { SuggestionModal } from './components/SuggestionModal';
 import { ApiKeyModal } from './components/ApiKeyModal';
+import { AlertModal } from './components/AlertModal';
 import { SSHProfile, TerminalEntry, CommandGenerationResult, ConnectionStatus, CommandStep, CommandStatus, CommandFix } from './types';
 import { generateLinuxCommand, generateCommandFix } from './services/geminiService';
 import { socket, connectSocket } from './services/sshService';
@@ -42,6 +43,9 @@ const App: React.FC = () => {
   const [isThinking, setIsThinking] = useState(false);
   const [backendError, setBackendError] = useState<string | null>(null);
   const [showApiKeyModal, setShowApiKeyModal] = useState(false);
+
+  // Connection Error Modal State
+  const [connectionError, setConnectionError] = useState<string | null>(null);
 
   // Auth State
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
@@ -180,6 +184,9 @@ const App: React.FC = () => {
     };
 
     const onError = (msg: string) => {
+      // Always capture the error message for the modal
+      setConnectionError(msg);
+
       if (msg.includes('Connection')) {
         setConnectionStatus(ConnectionStatus.Error);
       }
@@ -592,6 +599,13 @@ const App: React.FC = () => {
       {showApiKeyModal && (
         <ApiKeyModal onClose={() => setShowApiKeyModal(false)} />
       )}
+      <AlertModal
+        isOpen={!!connectionError}
+        onClose={() => setConnectionError(null)}
+        title="Connection Error"
+        message={connectionError || "An unknown error occurred."}
+        variant="error"
+      />
       {showSetupModal && (
           <SetupPinModal onSuccess={handlePinSetupSuccess} />
       )}
