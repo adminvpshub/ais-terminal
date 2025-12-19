@@ -18,11 +18,15 @@ export const Terminal: React.FC<TerminalProps> = ({ socket, fontSize }) => {
     useEffect(() => {
         if (xtermRef.current && fitAddonRef.current) {
             xtermRef.current.options.fontSize = fontSize;
-            fitAddonRef.current.fit();
-            // Emit resize event to backend because font size change affects dimensions
-            const dims = fitAddonRef.current.proposeDimensions();
-            if (dims) {
-                socket.emit('ssh:resize', { cols: dims.cols, rows: dims.rows });
+            try {
+                fitAddonRef.current.fit();
+                // Emit resize event to backend because font size change affects dimensions
+                const dims = fitAddonRef.current.proposeDimensions();
+                if (dims) {
+                    socket.emit('ssh:resize', { cols: dims.cols, rows: dims.rows });
+                }
+            } catch (e) {
+                console.warn("Resize failed on font change", e);
             }
         }
     }, [fontSize, socket]);
@@ -47,8 +51,21 @@ export const Terminal: React.FC<TerminalProps> = ({ socket, fontSize }) => {
 
         term.loadAddon(fitAddon);
         term.loadAddon(webLinksAddon);
-        term.open(terminalRef.current);
-        fitAddon.fit();
+
+        // Initialize logic
+        try {
+            term.open(terminalRef.current);
+            // Ensure immediate fit, but catch errors if DOM not ready
+            requestAnimationFrame(() => {
+                try {
+                   fitAddon.fit();
+                } catch(e) {
+                   console.warn("Initial fit failed", e);
+                }
+            });
+        } catch (e) {
+            console.error("Terminal initialization failed", e);
+        }
 
         xtermRef.current = term;
         fitAddonRef.current = fitAddon;
@@ -83,12 +100,16 @@ export const Terminal: React.FC<TerminalProps> = ({ socket, fontSize }) => {
 
         // Handle Resize
         const handleResize = () => {
-            if (fitAddonRef.current) {
-                fitAddonRef.current.fit();
-                const dims = fitAddonRef.current.proposeDimensions();
-                if (dims && xtermRef.current) {
-                     socket.emit('ssh:resize', { cols: dims.cols, rows: dims.rows });
+            try {
+                if (fitAddonRef.current && xtermRef.current) {
+                    fitAddonRef.current.fit();
+                    const dims = fitAddonRef.current.proposeDimensions();
+                    if (dims) {
+                         socket.emit('ssh:resize', { cols: dims.cols, rows: dims.rows });
+                    }
                 }
+            } catch (e) {
+                console.warn('Terminal resize failed (likely disposed):', e);
             }
         };
 
@@ -101,15 +122,27 @@ export const Terminal: React.FC<TerminalProps> = ({ socket, fontSize }) => {
         resizeObserver.observe(terminalRef.current);
 
         // Initial resize after a short delay to ensure container is ready
-        setTimeout(handleResize, 100);
+        const timeoutId = setTimeout(handleResize, 100);
 
         return () => {
+            clearTimeout(timeoutId); // Prevent resize after unmount
             socket.off('ssh:data', onData);
             socket.off('ssh:status', onStatus);
             socket.off('ssh:error', onError);
             window.removeEventListener('resize', handleResize);
             resizeObserver.disconnect();
-            term.dispose();
+
+            // Dispose logic
+            try {
+                fitAddon.dispose();
+                webLinksAddon.dispose();
+                term.dispose();
+            } catch (e) {
+                // Ignore disposal errors
+            }
+
+            xtermRef.current = null;
+            fitAddonRef.current = null;
         };
     }, [socket]);
 
