@@ -12,12 +12,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLaunch }) => {
       {/* Navigation */}
       <nav className="border-b border-gray-800 bg-gray-900/50 backdrop-blur-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2 font-bold text-xl text-blue-400">
+          <a href="/" className="flex items-center gap-2 font-bold text-xl text-blue-400 hover:text-blue-300 transition-colors">
             <Cpu className="h-6 w-6" />
             <span>AIS-Terminal</span>
-          </div>
+          </a>
           <div className="flex items-center gap-4">
-            <a href="https://github.com/your-username/ais-terminal" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white transition-colors">
+            <a href="https://github.com/adminvpshub/ais-terminal" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white transition-colors">
               <Github className="h-5 w-5" />
             </a>
             <button
@@ -152,6 +152,23 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLaunch }) => {
           </div>
         </div>
 
+        {/* Feature 3 (New) */}
+        <div className="flex flex-col md:flex-row items-center gap-12">
+          <div className="flex-1 space-y-6">
+            <div className="inline-block p-3 rounded-lg bg-green-900/20 border border-green-800/50">
+              <Terminal className="text-green-400 h-6 w-6" />
+            </div>
+            <h3 className="text-3xl font-bold text-white">Full Interactive PTY</h3>
+            <p className="text-lg text-gray-400 leading-relaxed">
+              Unlike other AI command runners, AIS-Terminal is a full terminal emulator.
+              Run interactive tools like `vim`, `htop`, or `nano` natively.
+            </p>
+          </div>
+          <div className="flex-1 rounded-xl overflow-hidden border border-gray-800 shadow-2xl">
+            <img src="/screenshots/feature-terminal.png" alt="Interactive Terminal" className="w-full" />
+          </div>
+        </div>
+
       </div>
 
       {/* Footer */}
@@ -165,7 +182,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLaunch }) => {
             Open Source • MIT License • Built with React & Vite
           </div>
           <div className="flex gap-4">
-             <a href="#" className="text-gray-400 hover:text-white transition-colors">GitHub</a>
+             <a href="https://github.com/adminvpshub/ais-terminal" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white transition-colors">GitHub</a>
              <a href="#" className="text-gray-400 hover:text-white transition-colors">Docs</a>
           </div>
         </div>
