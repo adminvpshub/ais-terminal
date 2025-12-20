@@ -1,21 +1,19 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ConnectionManager } from './components/ConnectionManager';
-import { Terminal } from './components/Terminal';
-import { Button } from './components/Button';
-import { TaskSidebar } from './components/TaskSidebar';
-import { SetupPinModal, PinEntryModal } from './components/AuthModals';
-import { SuggestionModal } from './components/SuggestionModal';
-import { ApiKeyModal } from './components/ApiKeyModal';
-import { AlertModal } from './components/AlertModal';
-import { SSHProfile, TerminalEntry, CommandGenerationResult, ConnectionStatus, CommandStep, CommandStatus, CommandFix } from './types';
-import { generateLinuxCommand, generateCommandFix } from './services/geminiService';
-import { socket, connectSocket } from './services/sshService';
-import { SAMPLE_PROMPTS } from './constants';
+import { ConnectionManager } from './ConnectionManager';
+import { Terminal } from './Terminal';
+import { Button } from './Button';
+import { TaskSidebar } from './TaskSidebar';
+import { SetupPinModal, PinEntryModal } from './AuthModals';
+import { SuggestionModal } from './SuggestionModal';
+import { SSHProfile, TerminalEntry, CommandGenerationResult, ConnectionStatus, CommandStep, CommandStatus, CommandFix } from '../types';
+import { generateLinuxCommand, generateCommandFix } from '../services/geminiService';
+import { socket, connectSocket } from '../services/sshService';
+import { SAMPLE_PROMPTS } from '../constants';
 import { Send, Play, Cpu, AlertTriangle, Command, Link, Keyboard, ServerOff, Sparkles, Terminal as TerminalIcon, Pause, RefreshCw, XCircle, SkipForward, Type } from 'lucide-react';
 
 const API_URL = 'http://localhost:3001';
 
-const App: React.FC = () => {
+const TerminalApp: React.FC = () => {
   // --- State ---
   const [profiles, setProfiles] = useState<SSHProfile[]>([]);
   const [activeProfileId, setActiveProfileId] = useState<string | null>(null); // "Selected" profile in sidebar
@@ -23,7 +21,7 @@ const App: React.FC = () => {
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>(ConnectionStatus.Disconnected);
   const [detectedDistro, setDetectedDistro] = useState<string | null>(null);
   const [fontSize, setFontSize] = useState<number>(14);
-
+  
   // Note: We no longer render terminalEntries, but keep this state if needed for logs/history in future
   // or simple side-logging. For now, we'll use it to accumulate data for AI context.
   const [sessionLog, setSessionLog] = useState('');
@@ -42,17 +40,11 @@ const App: React.FC = () => {
 
   const [isThinking, setIsThinking] = useState(false);
   const [backendError, setBackendError] = useState<string | null>(null);
-  const [showApiKeyModal, setShowApiKeyModal] = useState(false);
-
-  // Connection Error Modal State
-  const [connectionError, setConnectionError] = useState<string | null>(null);
 
   // Auth State
-  const [isLoadingAuth, setIsLoadingAuth] = useState(true);
   const [isPinSetup, setIsPinSetup] = useState<boolean>(true); // Assume true initially to avoid flash
   const [showSetupModal, setShowSetupModal] = useState(false);
   const [showPinEntryModal, setShowPinEntryModal] = useState(false);
-  const [isLoginMode, setIsLoginMode] = useState(false);
   const [cachedPin, setCachedPin] = useState<string | null>(null);
   const [pendingConnectProfileId, setPendingConnectProfileId] = useState<string | null>(null);
 
@@ -74,14 +66,9 @@ const App: React.FC = () => {
             setIsPinSetup(data.isSetup);
             if (!data.isSetup) {
                 setShowSetupModal(true);
-            } else {
-                // If setup, we force a "login"
-                setIsLoginMode(true);
-                setShowPinEntryModal(true);
             }
         })
-        .catch(err => console.error("Auth check failed", err))
-        .finally(() => setIsLoadingAuth(false));
+        .catch(err => console.error("Auth check failed", err));
 
     // Load font size
     const savedFontSize = localStorage.getItem('terminal_font_size');
@@ -184,9 +171,6 @@ const App: React.FC = () => {
     };
 
     const onError = (msg: string) => {
-      // Always capture the error message for the modal
-      setConnectionError(msg);
-
       if (msg.includes('Connection')) {
         setConnectionStatus(ConnectionStatus.Error);
       }
@@ -223,7 +207,7 @@ const App: React.FC = () => {
     socket.on('ssh:error', onError);
     socket.on('ssh:data', onData);
     socket.on('ssh:finished', onFinished);
-
+    
     socket.on('connect_error', (err) => {
         // Only set this if we haven't already set a more specific fetch error
         if (!backendError) {
@@ -308,12 +292,8 @@ const App: React.FC = () => {
              // Use the accumulated output 'currentOutput'
              const fix = await generateCommandFix(activeStep.command, currentOutput, detectedDistro || 'Linux');
              setSuggestedFix(fix);
-           } catch (e: any) {
-             if (e.message === 'INVALID_API_KEY') {
-                setShowApiKeyModal(true);
-             } else {
-                console.error('Failed to generate fix suggestion', e);
-             }
+           } catch (e) {
+             console.error('Failed to generate fix suggestion', e);
            } finally {
              setIsThinking(false);
            }
@@ -370,7 +350,7 @@ const App: React.FC = () => {
   };
 
   // --- Handlers ---
-
+  
   const saveProfilesToBackend = async (newProfiles: SSHProfile[]) => {
     // Determine if we need PIN to save.
     // If we have cachedPin, use it.
@@ -447,20 +427,6 @@ const App: React.FC = () => {
     if (activeProfileId === id) setActiveProfileId(null);
   };
 
-  const handleFactoryReset = async () => {
-    try {
-        const res = await fetch(`${API_URL}/auth/reset`, { method: 'POST' });
-        if (!res.ok) throw new Error("Reset failed");
-
-        // Force a page reload to ensure a completely clean state
-        window.location.reload();
-
-    } catch (err) {
-        console.error("Factory reset failed", err);
-        setBackendError("Failed to reset application. Please check console.");
-    }
-  };
-
   // Returns the profile that provides context for the main area (Header, Input, AI)
   // If connected, it's the connected profile. Otherwise, it's the selected (active) profile.
   const getContextProfile = () => {
@@ -501,8 +467,7 @@ const App: React.FC = () => {
       });
   };
 
-  const handlePinSetupSuccess = (pin: string) => {
-      setCachedPin(pin);
+  const handlePinSetupSuccess = () => {
       setShowSetupModal(false);
       setIsPinSetup(true);
       // Reload profiles to ensure we have the encrypted versions (though frontend just sees masks)
@@ -512,7 +477,6 @@ const App: React.FC = () => {
   const handlePinEntrySuccess = (pin: string) => {
       setCachedPin(pin);
       setShowPinEntryModal(false);
-      setIsLoginMode(false);
 
       // Handle pending actions
       if (pendingConnectProfileId) {
@@ -540,7 +504,7 @@ const App: React.FC = () => {
     // Context for AI commands comes from the CONNECTED profile if connected
     const profile = getContextProfile();
     if (!profile) return;
-
+    
     if (connectionStatus !== ConnectionStatus.Connected) return;
 
     setIsThinking(true);
@@ -551,12 +515,8 @@ const App: React.FC = () => {
     try {
       const result = await generateLinuxCommand(input, detectedDistro || 'Linux');
       setCommandQueue(result.steps);
-    } catch (error: any) {
-      if (error.message === 'INVALID_API_KEY') {
-          setShowApiKeyModal(true);
-      } else {
-          console.error('Command generation failed', error);
-      }
+    } catch (error) {
+      console.error('Command generation failed', error);
     } finally {
       setIsThinking(false);
     }
@@ -564,7 +524,7 @@ const App: React.FC = () => {
 
   const applyFix = () => {
     if (!suggestedFix || !activeStepId) return;
-
+    
     setCommandQueue(prev => prev.map(s => {
         if (s.id === activeStepId) {
             return {
@@ -577,7 +537,7 @@ const App: React.FC = () => {
         }
         return s;
     }));
-
+    
     setSuggestedFix(null);
     setExecutionState('idle');
   };
@@ -596,16 +556,6 @@ const App: React.FC = () => {
     <div className="flex h-screen w-full bg-gray-900 text-gray-100 font-sans selection:bg-blue-500/30">
 
       {/* Auth Modals */}
-      {showApiKeyModal && (
-        <ApiKeyModal onClose={() => setShowApiKeyModal(false)} />
-      )}
-      <AlertModal
-        isOpen={!!connectionError}
-        onClose={() => setConnectionError(null)}
-        title="Connection Error"
-        message={connectionError || "An unknown error occurred."}
-        variant="error"
-      />
       {showSetupModal && (
           <SetupPinModal onSuccess={handlePinSetupSuccess} />
       )}
@@ -617,18 +567,11 @@ const App: React.FC = () => {
                   setPendingConnectProfileId(null);
                   setPendingSaveProfiles(null);
               }}
-              canCancel={!isLoginMode}
             />
       )}
 
-      {isLoadingAuth && (
-          <div className="fixed inset-0 z-50 bg-gray-900 flex items-center justify-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-          </div>
-      )}
-
       {/* Sidebar */}
-      <ConnectionManager
+      <ConnectionManager 
         profiles={profiles}
         activeProfileId={activeProfileId}
         connectedProfileId={connectedProfileId}
@@ -638,19 +581,18 @@ const App: React.FC = () => {
         onDeleteProfile={handleDeleteProfile}
         onConnect={handleConnect}
         onDisconnect={handleDisconnect}
-        onFactoryReset={handleFactoryReset}
       />
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col h-full overflow-hidden relative">
-
+        
         {/* Header - Minimalist */}
         <div className="h-12 border-b border-gray-800 flex items-center px-4 justify-between bg-gray-900 flex-shrink-0">
              <div className="flex items-center gap-2 text-gray-200 font-semibold">
-                <Cpu size={18} className="text-blue-500"/>
+                <Cpu size={18} className="text-blue-500"/> 
                 AIS-Terminal
              </div>
-
+             
              <div className="flex items-center gap-4">
                  {/* Font Size Selector */}
                  <div className="flex items-center gap-2">
@@ -691,7 +633,7 @@ const App: React.FC = () => {
                     <h3 className="text-sm font-semibold text-red-200">Backend Disconnected</h3>
                     <p className="text-xs text-red-300 mt-0.5">{backendError}</p>
                 </div>
-                <button
+                <button 
                     onClick={() => window.location.reload()}
                     className="text-xs bg-red-800 hover:bg-red-700 text-white px-3 py-1.5 rounded transition-colors"
                 >
@@ -720,7 +662,7 @@ const App: React.FC = () => {
         {/* Interaction Area */}
         <div className="p-4 bg-gray-900 border-t border-gray-800 flex-shrink-0 z-20">
           <div className="max-w-4xl mx-auto space-y-4">
-
+            
             {/* Control Panel / Input Wrapper */}
             <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center">
 
@@ -828,7 +770,7 @@ const App: React.FC = () => {
                 ))}
               </div>
             )}
-
+            
           </div>
         </div>
       </div>
@@ -836,4 +778,4 @@ const App: React.FC = () => {
   );
 };
 
-export default App;
+export default TerminalApp;

@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { SSHProfile, LinuxDistro, ConnectionStatus } from '../types';
 import { Button } from './Button';
-import { ConfirmationModal } from './ConfirmationModal';
-import { Server, Plus, Trash2, Save, Eye, EyeOff, Plug, PanelLeftClose, PanelLeftOpen, Pencil } from 'lucide-react';
+import { Server, Plus, Trash2, Download, Save, Eye, EyeOff, Plug, PanelLeftClose, PanelLeftOpen, Pencil } from 'lucide-react';
 
 interface ConnectionManagerProps {
   profiles: SSHProfile[];
@@ -14,7 +13,6 @@ interface ConnectionManagerProps {
   onDeleteProfile: (id: string) => void;
   onConnect: () => void;
   onDisconnect: () => void;
-  onFactoryReset: () => void;
 }
 
 export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
@@ -26,24 +24,19 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
   onSaveProfile,
   onDeleteProfile,
   onConnect,
-  onDisconnect,
-  onFactoryReset
+  onDisconnect
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showKey, setShowKey] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
 
-  // Modal State
-  const [profileToDelete, setProfileToDelete] = useState<SSHProfile | null>(null);
-  const [showCleanupConfirm, setShowCleanupConfirm] = useState(false);
-
   useEffect(() => {
     if (connectionStatus === ConnectionStatus.Connected) {
       setIsCollapsed(true);
     }
   }, [connectionStatus]);
-
+  
   // Form State
   const [name, setName] = useState('');
   const [host, setHost] = useState('');
@@ -73,7 +66,7 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
 
   const handleSave = () => {
     if (!name || !host) return;
-
+    
     const profileData: SSHProfile = {
       id: editingId || crypto.randomUUID(),
       name,
@@ -82,9 +75,19 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
       privateKey, // If empty string, backend logic preserves existing key
       passphrase: passphrase || undefined, // If empty/undefined, backend preserves existing
     };
-
+    
     onSaveProfile(profileData);
     resetForm();
+  };
+
+  const handleExport = () => {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(profiles, null, 2));
+    const downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href", dataStr);
+    downloadAnchorNode.setAttribute("download", "ssh_profiles.json");
+    document.body.appendChild(downloadAnchorNode);
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
   };
 
   const isConnected = connectionStatus === ConnectionStatus.Connected;
@@ -92,35 +95,6 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
 
   return (
     <div className={`flex flex-col h-full bg-gray-800 border-r border-gray-700 flex-shrink-0 transition-all duration-300 ${isCollapsed ? 'w-16' : 'w-80'}`}>
-
-      {/* Confirmation Modals */}
-      <ConfirmationModal
-        isOpen={!!profileToDelete}
-        title="Delete Connection"
-        message={`Are you sure you want to delete "${profileToDelete?.name}"? This action cannot be undone.`}
-        confirmLabel="Delete"
-        onConfirm={() => {
-            if (profileToDelete) {
-                onDeleteProfile(profileToDelete.id);
-                setProfileToDelete(null);
-            }
-        }}
-        onCancel={() => setProfileToDelete(null)}
-      />
-
-      <ConfirmationModal
-        isOpen={showCleanupConfirm}
-        title="Cleanup Profiles & Reset"
-        message="This will delete ALL saved connection profiles and reset the Master PIN. The application will be reset to its initial state. This cannot be undone."
-        confirmLabel="Cleanup & Reset"
-        onConfirm={() => {
-            onFactoryReset();
-            setShowCleanupConfirm(false);
-        }}
-        onCancel={() => setShowCleanupConfirm(false)}
-      />
-
-
       <div className={`p-4 border-b border-gray-700 flex items-center bg-gray-900/50 ${isCollapsed ? 'justify-center' : 'justify-between'}`}>
         {!isCollapsed && (
           <h2 className="text-lg font-semibold text-white flex items-center gap-2">
@@ -132,11 +106,11 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
           {!isCollapsed && (
             <>
               <button
-                onClick={() => setShowCleanupConfirm(true)}
-                className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-gray-700 rounded transition-colors"
-                title="Cleanup Profiles & Reset"
+                onClick={handleExport}
+                className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-700 rounded transition-colors"
+                title="Export Profiles"
               >
-                <Trash2 size={16} />
+                <Download size={16} />
               </button>
               <button
                 onClick={() => setIsEditing(true)}
@@ -163,32 +137,32 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
           <div className="bg-gray-700/50 p-3 rounded-md border border-gray-600 space-y-3 animate-in fade-in slide-in-from-top-2 shadow-lg relative z-10">
              <div>
               <label className="block text-xs font-medium text-gray-400 mb-1">Profile Name</label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
+              <input 
+                type="text" 
+                value={name} 
+                onChange={(e) => setName(e.target.value)} 
                 className="w-full bg-gray-900 border border-gray-600 rounded px-2 py-1 text-sm text-white focus:ring-1 focus:ring-blue-500 outline-none"
                 placeholder="Prod Server"
               />
             </div>
-
+            
             <div className="grid grid-cols-2 gap-2">
                 <div>
                 <label className="block text-xs font-medium text-gray-400 mb-1">Host/IP</label>
-                <input
-                    type="text"
-                    value={host}
-                    onChange={(e) => setHost(e.target.value)}
+                <input 
+                    type="text" 
+                    value={host} 
+                    onChange={(e) => setHost(e.target.value)} 
                     className="w-full bg-gray-900 border border-gray-600 rounded px-2 py-1 text-sm text-white focus:ring-1 focus:ring-blue-500 outline-none"
                     placeholder="192.168.1.1"
                 />
                 </div>
                 <div>
                 <label className="block text-xs font-medium text-gray-400 mb-1">User</label>
-                <input
-                    type="text"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
+                <input 
+                    type="text" 
+                    value={username} 
+                    onChange={(e) => setUsername(e.target.value)} 
                     className="w-full bg-gray-900 border border-gray-600 rounded px-2 py-1 text-sm text-white focus:ring-1 focus:ring-blue-500 outline-none"
                     placeholder="root"
                 />
@@ -203,9 +177,9 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
                     {showKey ? <EyeOff size={12}/> : <Eye size={12}/>}
                 </button>
               </div>
-              <textarea
-                value={privateKey}
-                onChange={(e) => setPrivateKey(e.target.value)}
+              <textarea 
+                value={privateKey} 
+                onChange={(e) => setPrivateKey(e.target.value)} 
                 className={`w-full bg-gray-900 border border-gray-600 rounded px-2 py-1 text-xs text-gray-300 focus:ring-1 focus:ring-blue-500 outline-none font-mono ${showKey ? '' : 'text-security-disc'}`}
                 placeholder={editingId ? "Leave blank to keep existing key" : "-----BEGIN OPENSSH PRIVATE KEY-----"}
                 rows={3}
@@ -215,10 +189,10 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
 
             <div>
               <label className="block text-xs font-medium text-gray-400 mb-1">Passphrase (Optional)</label>
-              <input
-                type="password"
-                value={passphrase}
-                onChange={(e) => setPassphrase(e.target.value)}
+              <input 
+                type="password" 
+                value={passphrase} 
+                onChange={(e) => setPassphrase(e.target.value)} 
                 className="w-full bg-gray-900 border border-gray-600 rounded px-2 py-1 text-sm text-white focus:ring-1 focus:ring-blue-500 outline-none"
                 placeholder={editingId ? "Leave blank to keep existing" : "Key Passphrase"}
               />
@@ -257,13 +231,13 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
           }
 
           return (
-            <div
+            <div 
               key={profile.id}
               onClick={() => onSelectProfile(profile.id)}
               className={`
                 group p-3 rounded-md cursor-pointer border transition-all duration-200 relative
-                ${isActive
-                  ? 'bg-blue-900/20 border-blue-500/50 shadow-md ring-1 ring-blue-500/20'
+                ${isActive 
+                  ? 'bg-blue-900/20 border-blue-500/50 shadow-md ring-1 ring-blue-500/20' 
                   : 'bg-gray-800 border-transparent hover:bg-gray-700/50 hover:border-gray-600'}
               `}
             >
@@ -281,7 +255,7 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
                     {profile.username}@{profile.host}
                   </div>
                 </div>
-
+                
                 <div className="flex flex-col items-end gap-2">
                   <div className="opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity">
                     <button
@@ -292,10 +266,7 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
                         <Pencil size={14} />
                     </button>
                     <button
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            setProfileToDelete(profile);
-                        }}
+                        onClick={(e) => { e.stopPropagation(); onDeleteProfile(profile.id); }}
                         className="p-1.5 text-gray-500 hover:text-red-400"
                         title="Delete Connection"
                     >
@@ -304,22 +275,22 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
                   </div>
                 </div>
               </div>
-
+              
               {isActive && (
                 <div className="mt-3 pt-2 border-t border-gray-700/50 flex gap-2">
                    {isConnected && isConnectedProfile ? (
-                     <Button
-                       size="sm"
-                       variant="danger"
+                     <Button 
+                       size="sm" 
+                       variant="danger" 
                        className="w-full py-1 h-8 text-xs"
                        onClick={(e) => { e.stopPropagation(); onDisconnect(); }}
                      >
                        Disconnect
                      </Button>
                    ) : (
-                    <Button
-                      size="sm"
-                      variant="primary"
+                    <Button 
+                      size="sm" 
+                      variant="primary" 
                       className="w-full py-1 h-8 text-xs"
                       isLoading={isConnecting}
                       onClick={(e) => { e.stopPropagation(); onConnect(); }}
@@ -332,7 +303,7 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
             </div>
           );
         })}
-
+        
         {profiles.length === 0 && !isEditing && (
             <div className="text-center text-gray-500 text-sm py-8 px-4">
                 {isCollapsed ? (

@@ -18,15 +18,11 @@ export const Terminal: React.FC<TerminalProps> = ({ socket, fontSize }) => {
     useEffect(() => {
         if (xtermRef.current && fitAddonRef.current) {
             xtermRef.current.options.fontSize = fontSize;
-            try {
-                fitAddonRef.current.fit();
-                // Emit resize event to backend because font size change affects dimensions
-                const dims = fitAddonRef.current.proposeDimensions();
-                if (dims) {
-                    socket.emit('ssh:resize', { cols: dims.cols, rows: dims.rows });
-                }
-            } catch (e) {
-                console.warn("Resize failed on font change", e);
+            fitAddonRef.current.fit();
+            // Emit resize event to backend because font size change affects dimensions
+            const dims = fitAddonRef.current.proposeDimensions();
+            if (dims) {
+                socket.emit('ssh:resize', { cols: dims.cols, rows: dims.rows });
             }
         }
     }, [fontSize, socket]);
@@ -51,21 +47,8 @@ export const Terminal: React.FC<TerminalProps> = ({ socket, fontSize }) => {
 
         term.loadAddon(fitAddon);
         term.loadAddon(webLinksAddon);
-
-        // Initialize logic
-        try {
-            term.open(terminalRef.current);
-            // Ensure immediate fit, but catch errors if DOM not ready
-            requestAnimationFrame(() => {
-                try {
-                   fitAddon.fit();
-                } catch(e) {
-                   console.warn("Initial fit failed", e);
-                }
-            });
-        } catch (e) {
-            console.error("Terminal initialization failed", e);
-        }
+        term.open(terminalRef.current);
+        fitAddon.fit();
 
         xtermRef.current = term;
         fitAddonRef.current = fitAddon;
@@ -79,7 +62,7 @@ export const Terminal: React.FC<TerminalProps> = ({ socket, fontSize }) => {
         const onData = (data: string) => {
             term.write(data);
         };
-
+        
         const onStatus = (status: string) => {
              if (status === 'connected') {
                  term.clear();
@@ -100,21 +83,17 @@ export const Terminal: React.FC<TerminalProps> = ({ socket, fontSize }) => {
 
         // Handle Resize
         const handleResize = () => {
-            try {
-                if (fitAddonRef.current && xtermRef.current) {
-                    fitAddonRef.current.fit();
-                    const dims = fitAddonRef.current.proposeDimensions();
-                    if (dims) {
-                         socket.emit('ssh:resize', { cols: dims.cols, rows: dims.rows });
-                    }
+            if (fitAddonRef.current) {
+                fitAddonRef.current.fit();
+                const dims = fitAddonRef.current.proposeDimensions();
+                if (dims && xtermRef.current) {
+                     socket.emit('ssh:resize', { cols: dims.cols, rows: dims.rows });
                 }
-            } catch (e) {
-                console.warn('Terminal resize failed (likely disposed):', e);
             }
         };
 
         window.addEventListener('resize', handleResize);
-
+        
         // ResizeObserver to detect container size changes (e.g. when input area expands)
         const resizeObserver = new ResizeObserver(() => {
             handleResize();
@@ -122,27 +101,15 @@ export const Terminal: React.FC<TerminalProps> = ({ socket, fontSize }) => {
         resizeObserver.observe(terminalRef.current);
 
         // Initial resize after a short delay to ensure container is ready
-        const timeoutId = setTimeout(handleResize, 100);
+        setTimeout(handleResize, 100);
 
         return () => {
-            clearTimeout(timeoutId); // Prevent resize after unmount
             socket.off('ssh:data', onData);
             socket.off('ssh:status', onStatus);
             socket.off('ssh:error', onError);
             window.removeEventListener('resize', handleResize);
             resizeObserver.disconnect();
-
-            // Dispose logic
-            try {
-                fitAddon.dispose();
-                webLinksAddon.dispose();
-                term.dispose();
-            } catch (e) {
-                // Ignore disposal errors
-            }
-
-            xtermRef.current = null;
-            fitAddonRef.current = null;
+            term.dispose();
         };
     }, [socket]);
 
