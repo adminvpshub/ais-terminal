@@ -1,6 +1,6 @@
 import React from 'react';
 import { Key, X } from 'lucide-react';
-import { Button } from './Button';
+import { Button } from '../../components/Button';
 
 interface ApiKeyModalProps {
     onClose: () => void;
