@@ -68,7 +68,7 @@
 
 | Landing Page | Terminal Interface |
 |:---:|:---:|
-| <img src="/public/screenshots/feature-connection.png" width="400"> | <img src="/public/screenshots/feature-terminal.png" width="400"> |
+| <img src="/public/screenshots/landing-page.png" width="400"> | <img src="/public/screenshots/feature-terminal.png" width="400"> |
 
 | Command Staging | AI Suggestions |
 |:---:|:---:|
