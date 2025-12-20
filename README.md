@@ -4,7 +4,7 @@
     <p>Describe your task, get verified commands, and fix errors automatically with Gemini 2.0.</p>
 
 <p align="center">
-  <img src="/public/screenshots/landing_hero.png" alt="AIS-Terminal Hero" width="800" />
+  <img src="/public/screenshots/feature-terminal.png" alt="AIS-Terminal Hero" width="800" />
 </p>
 
 </div>
@@ -68,11 +68,11 @@
 
 | Landing Page | Terminal Interface |
 |:---:|:---:|
-| <img src="/public/screenshots/landing_hero.png" width="400"> | <img src="/public/screenshots/terminal_view.png" width="400"> |
+| <img src="/public/screenshots/feature-connection.png" width="400"> | <img src="/public/screenshots/feature-terminal.png" width="400"> |
 
 | Command Staging | AI Suggestions |
 |:---:|:---:|
-| <img src="/public/screenshots/staging_area.png" width="400"> | <img src="/public/screenshots/suggestion_modal.png" width="400"> |
+| <img src="/public/screenshots/feature-ai-commands.png" width="400"> | <img src="/public/screenshots/feature-auto-fix.png" width="400"> |
 
 ## 🤝 Contributing
 
