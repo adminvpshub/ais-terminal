@@ -1,29 +1,25 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>AIS-Terminal</title>
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script>
       tailwind.config = {
         theme: {
           extend: {
-            fontFamily: {
-              sans: ['Inter', 'sans-serif'],
-              mono: ['JetBrains Mono', 'monospace'],
-            },
             colors: {
-              terminal: {
-                bg: '#0f172a',
-                text: '#38bdf8',
-                dim: '#64748b',
-                green: '#22c55e',
-                red: '#ef4444',
-                yellow: '#eab308'
+              gray: {
+                750: '#2d3748',
+                850: '#1a202c',
+                950: '#0d1117',
               }
+            },
+            animation: {
+              'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
             }
           }
         }

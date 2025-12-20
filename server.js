@@ -119,6 +119,46 @@ app.post('/auth/verify', async (req, res) => {
     }
 });
 
+// Factory Reset (Cleanup Profiles & PIN)
+app.post('/auth/reset', async (req, res) => {
+    try {
+        // Delete Security File (PIN)
+        try {
+            await fs.unlink(SECURITY_FILE);
+        } catch (e) {
+            // Ignore if already missing
+        }
+
+        // Delete Profiles File
+        try {
+            await fs.unlink(PROFILES_FILE);
+        } catch (e) {
+            // Ignore if already missing
+        }
+
+        // Also clean up any session files
+        try {
+            // Ensure dir exists before reading
+            await fs.mkdir(SESSIONS_DIR, { recursive: true });
+
+            const files = await fs.readdir(SESSIONS_DIR);
+            for (const file of files) {
+                if (file.endsWith('.json')) {
+                    await fs.unlink(path.join(SESSIONS_DIR, file)).catch(e => console.warn(`Failed to delete session file ${file}:`, e));
+                }
+            }
+        } catch (e) {
+            console.error("Failed to clean sessions:", e);
+        }
+
+        console.log("Factory reset completed");
+        res.json({ success: true });
+    } catch (error) {
+        console.error("Factory reset failed:", error);
+        res.status(500).json({ error: "Failed to reset application" });
+    }
+});
+
 // --- Persistence Endpoints ---
 
 app.get('/profiles', async (req, res) => {
