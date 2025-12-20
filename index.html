@@ -25,8 +25,28 @@
         }
       }
     </script>
-  </head>
-  <body class="bg-gray-900 text-gray-100 h-screen overflow-hidden">
+  <script type="importmap">
+{
+  "imports": {
+    "react/": "https://aistudiocdn.com/react@^19.2.1/",
+    "react": "https://aistudiocdn.com/react@^19.2.1",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.31.0",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.555.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.1/",
+    "express": "https://aistudiocdn.com/express@^5.2.1",
+    "body-parser": "https://aistudiocdn.com/body-parser@^2.2.1",
+    "cors": "https://aistudiocdn.com/cors@^2.8.5",
+    "ssh2": "https://aistudiocdn.com/ssh2@^1.17.0",
+    "socket.io": "https://aistudiocdn.com/socket.io@^4.7.5",
+    "socket.io-client": "https://aistudiocdn.com/socket.io-client@^4.7.5",
+    "http": "https://aistudiocdn.com/http@^0.0.1-security",
+    "path": "https://aistudiocdn.com/path@^0.12.7",
+    "fs/": "https://aistudiocdn.com/fs@^0.0.1-security/"
+  }
+}
+</script>
+</head>
+  <body class="bg-gray-900 text-gray-100 h-screen overflow-auto">
     <div id="root"></div>
     <script type="module" src="/src/index.tsx"></script>
   </body>

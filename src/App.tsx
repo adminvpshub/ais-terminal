@@ -35,7 +35,9 @@ const App: React.FC = () => {
   return (
     <>
       {currentView === 'landing' ? (
-        <LandingPage onLaunch={navigateToApp} />
+        <div className="h-screen overflow-auto">
+          <LandingPage onLaunch={navigateToApp} />
+        </div>
       ) : (
         <TerminalApp />
       )}
