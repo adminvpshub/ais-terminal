@@ -1,20 +1,20 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ConnectionManager } from './components/ConnectionManager';
-import { Terminal } from './components/Terminal';
-import { Button } from './components/Button';
-import { TaskSidebar } from './components/TaskSidebar';
-import { SetupPinModal, PinEntryModal } from './components/AuthModals';
-import { SuggestionModal } from './components/SuggestionModal';
-import { ApiKeyModal } from './components/ApiKeyModal';
-import { SSHProfile, TerminalEntry, CommandGenerationResult, ConnectionStatus, CommandStep, CommandStatus, CommandFix } from './types';
-import { generateLinuxCommand, generateCommandFix } from './services/geminiService';
-import { socket, connectSocket } from './services/sshService';
-import { SAMPLE_PROMPTS } from './constants';
+import { ConnectionManager } from './ConnectionManager';
+import { Terminal } from './Terminal';
+import { Button } from './Button';
+import { TaskSidebar } from './TaskSidebar';
+import { SetupPinModal, PinEntryModal } from './AuthModals';
+import { SuggestionModal } from './SuggestionModal';
+import { ApiKeyModal } from './ApiKeyModal';
+import { SSHProfile, TerminalEntry, CommandGenerationResult, ConnectionStatus, CommandStep, CommandStatus, CommandFix } from '../types';
+import { generateLinuxCommand, generateCommandFix } from '../services/geminiService';
+import { socket, connectSocket } from '../services/sshService';
+import { SAMPLE_PROMPTS } from '../constants';
 import { Send, Play, Cpu, AlertTriangle, Command, Link, Keyboard, ServerOff, Sparkles, Terminal as TerminalIcon, Pause, RefreshCw, XCircle, SkipForward, Type } from 'lucide-react';
 
 const API_URL = 'http://localhost:3001';
 
-const App: React.FC = () => {
+const TerminalApp: React.FC = () => {
   // --- State ---
   const [profiles, setProfiles] = useState<SSHProfile[]>([]);
   const [activeProfileId, setActiveProfileId] = useState<string | null>(null); // "Selected" profile in sidebar
@@ -296,9 +296,9 @@ const App: React.FC = () => {
              setSuggestedFix(fix);
            } catch (e: any) {
              if (e.message === 'INVALID_API_KEY') {
-                setShowApiKeyModal(true);
+                 setShowApiKeyModal(true);
              } else {
-                console.error('Failed to generate fix suggestion', e);
+                 console.error('Failed to generate fix suggestion', e);
              }
            } finally {
              setIsThinking(false);
@@ -567,7 +567,7 @@ const App: React.FC = () => {
 
       {/* Auth Modals */}
       {showApiKeyModal && (
-        <ApiKeyModal onClose={() => setShowApiKeyModal(false)} />
+          <ApiKeyModal onClose={() => setShowApiKeyModal(false)} />
       )}
       {showSetupModal && (
           <SetupPinModal onSuccess={handlePinSetupSuccess} />
@@ -791,4 +791,4 @@ const App: React.FC = () => {
   );
 };
 
-export default App;
+export default TerminalApp;

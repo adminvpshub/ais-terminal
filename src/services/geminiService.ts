@@ -8,32 +8,6 @@ import { CommandGenerationResult, LinuxDistro, CommandStep, CommandStatus, Comma
 const apiKey = process.env.API_KEY || 'dummy_key_for_dev';
 const ai = new GoogleGenAI({ apiKey });
 
-// Helper to check for API Key errors
-const handleGeminiError = (error: any) => {
-    // Check for "API key not valid" error structure
-    // The library usually throws an error with a message containing the details
-    const msg = error?.message || '';
-    const status = error?.status;
-
-    if (status === 400 && (msg.includes('API key not valid') || msg.includes('API_KEY_INVALID'))) {
-        throw new Error("INVALID_API_KEY");
-    }
-
-    // Also check deeper structure if accessible
-    if (error?.error?.code === 400 && error?.error?.status === 'INVALID_ARGUMENT') {
-         if (JSON.stringify(error).includes('API_KEY_INVALID')) {
-             throw new Error("INVALID_API_KEY");
-         }
-    }
-
-    // Fallback: Check string representation
-    if (msg.includes('API key not valid')) {
-         throw new Error("INVALID_API_KEY");
-    }
-
-    throw error;
-};
-
 export const generateLinuxCommand = async (
   naturalLanguage: string,
   distro: string
@@ -94,9 +68,8 @@ export const generateLinuxCommand = async (
     }));
 
     return { steps };
-  } catch (error: any) {
+  } catch (error) {
     console.error("Gemini Generation Error:", error);
-    handleGeminiError(error);
     throw new Error("Failed to translate command.");
   }
 };
@@ -153,9 +126,8 @@ export const generateCommandFix = async (
       id: crypto.randomUUID(),
       status: CommandStatus.Pending
     };
-  } catch (error: any) {
+  } catch (error) {
     console.error("Gemini Fix Generation Error:", error);
-    handleGeminiError(error);
     throw new Error("Failed to generate fix.");
   }
 };

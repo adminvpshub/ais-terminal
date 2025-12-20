@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { Lock, AlertCircle } from 'lucide-react';
+import { Lock, Check, AlertCircle } from 'lucide-react';
 import { Button } from './Button';
 
 interface SetupPinModalProps {
-    onSuccess: (pin: string) => void;
+    onSuccess: () => void;
 }
 
 export const SetupPinModal: React.FC<SetupPinModalProps> = ({ onSuccess }) => {
@@ -36,7 +36,7 @@ export const SetupPinModal: React.FC<SetupPinModalProps> = ({ onSuccess }) => {
             const data = await res.json();
 
             if (res.ok) {
-                onSuccess(pin);
+                onSuccess();
             } else {
                 setError(data.error || 'Setup failed');
             }
@@ -108,11 +108,10 @@ export const SetupPinModal: React.FC<SetupPinModalProps> = ({ onSuccess }) => {
 
 interface PinEntryModalProps {
     onSuccess: (pin: string) => void;
-    onCancel?: () => void;
-    canCancel?: boolean;
+    onCancel: () => void;
 }
 
-export const PinEntryModal: React.FC<PinEntryModalProps> = ({ onSuccess, onCancel, canCancel = true }) => {
+export const PinEntryModal: React.FC<PinEntryModalProps> = ({ onSuccess, onCancel }) => {
     const [pin, setPin] = useState('');
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
@@ -152,9 +151,7 @@ export const PinEntryModal: React.FC<PinEntryModalProps> = ({ onSuccess, onCance
                     <div className="w-10 h-10 rounded-full bg-blue-900/50 flex items-center justify-center mb-3 text-blue-400">
                         <Lock size={20} />
                     </div>
-                    <h2 className="text-lg font-bold text-gray-100">
-                        {canCancel ? "Enter Master PIN" : "Login Required"}
-                    </h2>
+                    <h2 className="text-lg font-bold text-gray-100">Enter Master PIN</h2>
                     <p className="text-xs text-gray-400 text-center mt-1">
                         Please enter your 6-digit PIN to unlock SSH keys.
                     </p>
@@ -178,11 +175,9 @@ export const PinEntryModal: React.FC<PinEntryModalProps> = ({ onSuccess, onCance
                     />
 
                     <div className="flex gap-2">
-                        {canCancel && onCancel && (
-                            <Button type="button" variant="secondary" className="flex-1" onClick={onCancel}>
-                                Cancel
-                            </Button>
-                        )}
+                        <Button type="button" variant="secondary" className="flex-1" onClick={onCancel}>
+                            Cancel
+                        </Button>
                         <Button type="submit" variant="primary" className="flex-1" disabled={loading || !pin}>
                             {loading ? 'Verifying...' : 'Unlock'}
                         </Button>
