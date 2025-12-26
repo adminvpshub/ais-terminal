@@ -6,7 +6,7 @@ import cors from 'cors';
 import fs from 'fs/promises';
 import path, { dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { hashPin, verifyPin, encrypt, decrypt, isEncrypted } from './services/security.js';
+import { hashPin, verifyPin, encrypt, decrypt, isEncrypted } from './src/services/security.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
