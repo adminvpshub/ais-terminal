@@ -40,14 +40,14 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
   // Form State
   const [name, setName] = useState('');
   const [host, setHost] = useState('');
-  const [username, setUsername] = useState('root');
+  const [username, setUsername] = useState('');
   const [privateKey, setPrivateKey] = useState('');
   const [passphrase, setPassphrase] = useState('');
 
   const resetForm = () => {
     setName('');
     setHost('');
-    setUsername('root');
+    setUsername('');
     setPrivateKey('');
     setPassphrase('');
     setEditingId(null);
@@ -65,7 +65,7 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
   };
 
   const handleSave = () => {
-    if (!name || !host) return;
+    if (!name || !host || !username) return;
     
     const profileData: SSHProfile = {
       id: editingId || crypto.randomUUID(),
@@ -164,7 +164,6 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
                     value={username} 
                     onChange={(e) => setUsername(e.target.value)} 
                     className="w-full bg-gray-900 border border-gray-600 rounded px-2 py-1 text-sm text-white focus:ring-1 focus:ring-blue-500 outline-none"
-                    placeholder="root"
                 />
                 </div>
             </div>
