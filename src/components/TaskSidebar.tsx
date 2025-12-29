@@ -1,6 +1,6 @@
 import React from 'react';
 import { CommandStep, CommandStatus } from '../types';
-import { CheckCircle, XCircle, Clock, PlayCircle, SkipForward, AlertCircle, Play } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, PlayCircle, SkipForward, AlertCircle, Play, Copy } from 'lucide-react';
 
 interface TaskSidebarProps {
   steps: CommandStep[];
@@ -102,6 +102,17 @@ export const TaskSidebar: React.FC<TaskSidebarProps> = ({
                               Run
                             </button>
                           )}
+
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigator.clipboard.writeText(step.command);
+                            }}
+                            className="flex items-center justify-center w-[22px] h-[18px] rounded text-[10px] font-medium border transition-colors bg-white/5 text-gray-300 border-gray-700 hover:bg-white/10 hover:text-white hover:border-gray-500"
+                            title="Copy command"
+                          >
+                            <Copy size={10} />
+                          </button>
 
                           {step.dangerous && (
                               <div className="flex items-center gap-1 text-[10px] text-orange-400 bg-orange-950/30 w-fit px-1.5 py-0.5 rounded border border-orange-900/50">
