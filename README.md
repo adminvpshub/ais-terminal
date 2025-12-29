@@ -58,6 +58,30 @@
 5.  **Access:**
     Open `http://localhost:3000` in your browser.
 
+## 🔑 SSH Configuration Guide
+
+If you need to connect as a user other than `root` (e.g., `admin` or `sysadmin`) and encounter permission errors, you may need to manually configure the SSH keys on your server.
+
+**Basic Steps:**
+
+1.  **Generate a Key Pair:** Create a new SSH key pair locally (or use an existing one).
+2.  **Create .ssh Directory:** Ensure the directory exists for the target user:
+    ```bash
+    mkdir -p /home/username/.ssh
+    ```
+3.  **Add Public Key:** Append your public key content to the `authorized_keys` file:
+    ```bash
+    echo "your-public-key-content" >> /home/username/.ssh/authorized_keys
+    ```
+4.  **Set Permissions:** Secure the files (SSH requires strict permissions):
+    ```bash
+    chown -R username:username /home/username/.ssh
+    chmod 700 /home/username/.ssh
+    chmod 600 /home/username/.ssh/authorized_keys
+    ```
+
+For a detailed example of diagnosing and fixing these issues, please refer to [server_fix_log.md](./server_fix_log.md).
+
 ## 🔒 Security
 
 *   **Master PIN**: On first run, you will be prompted to set a 6-digit Master PIN. This PIN is used to encrypt all your SSH private keys and passphrases.
