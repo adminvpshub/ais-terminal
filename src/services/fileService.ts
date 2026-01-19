@@ -13,6 +13,24 @@ export const deleteFile = (path: string) => {
     socket.emit('files:delete', path);
 };
 
+export const getCurrentDirectory = () => {
+    return new Promise<string>((resolve, reject) => {
+        socket.emit('files:pwd');
+        const onPwd = (path: string) => {
+            socket.off('files:pwd:data', onPwd);
+            socket.off('files:error', onError);
+            resolve(path);
+        };
+        const onError = (msg: string) => {
+            socket.off('files:pwd:data', onPwd);
+            socket.off('files:error', onError);
+            reject(new Error(msg));
+        };
+        socket.on('files:pwd:data', onPwd);
+        socket.on('files:error', onError);
+    });
+};
+
 // Chunk size for uploads (e.g., 512KB)
 const CHUNK_SIZE = 512 * 1024;
 

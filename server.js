@@ -458,6 +458,18 @@ io.on('connection', (socket) => {
 
   // --- File Manager Endpoints ---
 
+  socket.on('files:pwd', () => {
+      const session = connections.get(socket.id);
+      if (!session || !session.sftp) {
+          socket.emit('files:error', 'SFTP not available');
+          return;
+      }
+      session.sftp.realpath('.', (err, path) => {
+          if (err) socket.emit('files:error', 'Failed to resolve PWD');
+          else socket.emit('files:pwd:data', path);
+      });
+  });
+
   socket.on('files:list', (pathStr) => {
     const session = connections.get(socket.id);
     if (!session || !session.sftp) {
@@ -528,19 +540,14 @@ io.on('connection', (socket) => {
         return;
       }
 
-      // Open stream or create file
-      // We will use append/write chunks. But simple way is createsWriteStream
-      // But we can't easily pipe socket data to it unless we handle chunks manually.
-      // We'll store the write stream in a map if we want to stream properly?
-      // Or just open the file handle?
-      // Let's use `createWriteStream` and store it in session.uploads
-
       try {
           if (!session.uploads) session.uploads = new Map();
 
+          // Use flags to create/overwrite
           const writeStream = session.sftp.createWriteStream(filePath);
 
           writeStream.on('error', (err) => {
+              console.error(`Upload stream error for ${filePath}:`, err);
               socket.emit('files:error', `Upload error: ${err.message}`);
               session.uploads.delete(filePath);
           });
@@ -550,10 +557,15 @@ io.on('connection', (socket) => {
               session.uploads.delete(filePath);
           });
 
+          // Emit ready immediately? Or wait for 'open'?
+          // ssh2 sftp stream emits 'open' but createWriteStream returns stream immediately.
+          // It's safer to assume it's ready. If error occurs, the error handler above catches it.
+
           session.uploads.set(filePath, writeStream);
           socket.emit('files:upload:ready', { path: filePath });
 
       } catch (err) {
+          console.error("Upload start exception:", err);
           socket.emit('files:error', `Failed to start upload: ${err.message}`);
       }
   });

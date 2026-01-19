@@ -2,18 +2,17 @@ import React, { useState, useEffect, useRef } from 'react';
 import { FileList } from './FileList';
 import { TransferProgress } from './TransferProgress';
 import { RemoteFile, FileTransfer } from '../../types';
-import { listFiles, uploadFile, downloadFile, deleteFile, createDirectory } from '../../services/fileService';
+import { listFiles, uploadFile, downloadFile, deleteFile, createDirectory, getCurrentDirectory } from '../../services/fileService';
 import { socket } from '../../services/sshService';
 import { X, Upload, FolderPlus, RefreshCw, ChevronRight, Home, ArrowUp } from 'lucide-react';
 
 interface FileManagerModalProps {
     isOpen: boolean;
     onClose: () => void;
-    initialPath?: string;
 }
 
-export const FileManagerModal: React.FC<FileManagerModalProps> = ({ isOpen, onClose, initialPath = '.' }) => {
-    const [currentPath, setCurrentPath] = useState(initialPath);
+export const FileManagerModal: React.FC<FileManagerModalProps> = ({ isOpen, onClose }) => {
+    const [currentPath, setCurrentPath] = useState<string>('');
     const [files, setFiles] = useState<RemoteFile[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -24,12 +23,33 @@ export const FileManagerModal: React.FC<FileManagerModalProps> = ({ isOpen, onCl
 
     useEffect(() => {
         if (isOpen) {
+            // First open: get real path if not set, or refresh
+            if (!currentPath) {
+                getCurrentDirectory().then(path => {
+                    setCurrentPath(path);
+                    // loadFiles will trigger via dependency below or we call it here?
+                    // Better to just set path, and let effect handle?
+                    // But effect depends on currentPath.
+                }).catch(() => {
+                    setCurrentPath('.'); // Fallback
+                });
+            } else {
+                loadFiles(currentPath);
+            }
+        }
+    }, [isOpen]);
+
+    useEffect(() => {
+        if (currentPath && isOpen) {
             loadFiles(currentPath);
         }
-    }, [isOpen, currentPath]);
+    }, [currentPath, isOpen]);
 
     useEffect(() => {
         const onList = ({ path, files }: { path: string, files: RemoteFile[] }) => {
+            // Check if path matches currentPath (or is relatively close? no, exact match)
+            // But we might need to normalize trailing slashes.
+            // Let's rely on backend echoing the path we requested.
             if (path === currentPath) {
                 setFiles(files);
                 setIsLoading(false);
@@ -219,7 +239,7 @@ export const FileManagerModal: React.FC<FileManagerModalProps> = ({ isOpen, onCl
         <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
             {/* Modal Container - pointer-events-auto */}
             <div
-                className="bg-gray-800 w-[800px] h-[600px] rounded-lg shadow-2xl border border-gray-700 flex flex-col pointer-events-auto overflow-hidden relative"
+                className="bg-gray-800 w-[90vw] max-w-4xl max-h-[85vh] h-[600px] rounded-lg shadow-2xl border border-gray-700 flex flex-col pointer-events-auto overflow-hidden relative"
                 onDragEnter={handleDragEnter}
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
@@ -254,12 +274,12 @@ export const FileManagerModal: React.FC<FileManagerModalProps> = ({ isOpen, onCl
                      <button onClick={() => loadFiles(currentPath)} className={`p-1.5 hover:bg-gray-700 rounded text-gray-400 ${isLoading ? 'animate-spin' : ''}`} title="Refresh">
                          <RefreshCw size={16} />
                      </button>
-                     <button onClick={() => setCurrentPath('.')} className="p-1.5 hover:bg-gray-700 rounded text-gray-400" title="Home">
+                     <button onClick={() => getCurrentDirectory().then(setCurrentPath)} className="p-1.5 hover:bg-gray-700 rounded text-gray-400" title="Home (Current PWD)">
                          <Home size={16} />
                      </button>
 
                      <div className="flex-1 bg-gray-900 border border-gray-700 rounded px-2 py-1 text-sm text-gray-300 font-mono flex items-center overflow-hidden whitespace-nowrap">
-                         {currentPath}
+                         {currentPath || '...'}
                      </div>
 
                      <button onClick={handleCreateDir} className="p-1.5 hover:bg-gray-700 rounded text-blue-400" title="New Folder">
