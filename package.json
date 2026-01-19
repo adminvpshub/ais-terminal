@@ -27,6 +27,7 @@
     "ssh2": "^1.17.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.57.0",
     "@types/node": "^22.14.0",
     "@vitejs/plugin-react": "^5.1.1",
     "typescript": "~5.8.2",

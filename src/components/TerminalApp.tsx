@@ -9,7 +9,8 @@ import { SSHProfile, TerminalEntry, CommandGenerationResult, ConnectionStatus, C
 import { generateLinuxCommand, generateCommandFix } from '../services/geminiService';
 import { socket, connectSocket } from '../services/sshService';
 import { SAMPLE_PROMPTS } from '../constants';
-import { Send, Play, Cpu, AlertTriangle, Command, Link, Keyboard, ServerOff, Sparkles, Terminal as TerminalIcon, Pause, RefreshCw, XCircle, SkipForward, Type } from 'lucide-react';
+import { FileManagerModal } from './FileManager/FileManagerModal';
+import { Send, Play, Cpu, AlertTriangle, Command, Link, Keyboard, ServerOff, Sparkles, Terminal as TerminalIcon, Pause, RefreshCw, XCircle, SkipForward, Type, FolderOpen } from 'lucide-react';
 
 const API_URL = 'http://localhost:3001';
 
@@ -47,6 +48,7 @@ const TerminalApp: React.FC = () => {
   const [showPinEntryModal, setShowPinEntryModal] = useState(false);
   const [cachedPin, setCachedPin] = useState<string | null>(null);
   const [pendingConnectProfileId, setPendingConnectProfileId] = useState<string | null>(null);
+  const [showFileManager, setShowFileManager] = useState(false);
 
   // --- Refs ---
   const inputRef = useRef<HTMLInputElement>(null);
@@ -610,6 +612,15 @@ const TerminalApp: React.FC = () => {
 
                  {activeProfile && (
                     <div className="flex items-center gap-3 text-xs text-gray-500 border-l border-gray-800 pl-4">
+                        {isConnected && (
+                            <button
+                                onClick={() => setShowFileManager(true)}
+                                className="p-1.5 hover:bg-gray-800 rounded text-gray-400 hover:text-blue-400 transition-colors mr-2"
+                                title="Open File Manager"
+                            >
+                                <FolderOpen size={16} />
+                            </button>
+                        )}
                         <div className="flex items-center gap-1">
                           <Link size={12}/>
                           {activeProfile.username}@{activeProfile.host}
@@ -624,6 +635,11 @@ const TerminalApp: React.FC = () => {
                  )}
              </div>
         </div>
+
+        <FileManagerModal
+            isOpen={showFileManager}
+            onClose={() => setShowFileManager(false)}
+        />
 
         {/* Error Banner */}
         {backendError && (

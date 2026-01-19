@@ -1,27 +1,24 @@
-export type LinuxDistro = string;
-
-export enum ConnectionStatus {
-  Disconnected = 'disconnected',
-  Connecting = 'connecting',
-  Connected = 'connected',
-  Error = 'error',
-}
 
 export interface SSHProfile {
   id: string;
   name: string;
   host: string;
   username: string;
-  privateKey: string | boolean; // boolean if masked from backend
+  privateKey: string | boolean; // string (encrypted) on server, boolean (masked) on client
   passphrase?: string | boolean;
-  // distro field is removed as it is now auto-detected
 }
 
 export interface TerminalEntry {
-  id: string;
   type: 'command' | 'output' | 'error' | 'info';
   content: string;
   timestamp: number;
+}
+
+export enum ConnectionStatus {
+  Disconnected = 'disconnected',
+  Connecting = 'connecting',
+  Connected = 'connected',
+  Error = 'error'
 }
 
 export enum CommandStatus {
@@ -29,7 +26,7 @@ export enum CommandStatus {
   Running = 'running',
   Success = 'success',
   Error = 'error',
-  Skipped = 'skipped',
+  Skipped = 'skipped'
 }
 
 export interface CommandStep {
@@ -44,8 +41,31 @@ export interface CommandGenerationResult {
   steps: CommandStep[];
 }
 
-export type FixType = 'error' | 'suggestion';
-
 export interface CommandFix extends CommandStep {
-  classification: FixType;
+    originalError: string;
+    fixType: 'correction' | 'alternative';
+}
+
+export type LinuxDistro = 'Ubuntu' | 'Debian' | 'CentOS' | 'Fedora' | 'Arch' | 'Alpine' | 'Unknown';
+
+export interface RemoteFile {
+    name: string;
+    type: 'd' | 'f';
+    size: number;
+    date: string;
+    permissions: number;
+}
+
+export type TransferType = 'upload' | 'download';
+
+export interface FileTransfer {
+    id: string;
+    type: TransferType;
+    filename: string;
+    progress: number; // 0-100
+    status: 'pending' | 'running' | 'completed' | 'error';
+    error?: string;
+    startTime: number;
+    totalSize: number;
+    transferredSize: number;
 }

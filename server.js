@@ -363,17 +363,24 @@ io.on('connection', (socket) => {
         });
 
         function startShell(client, distro) {
-            client.shell({ term: 'xterm-256color', cols: 80, rows: 24 }, (err, stream) => {
+            // Initialize SFTP
+            client.sftp((err, sftp) => {
                 if (err) {
-                    socket.emit('ssh:error', 'Failed to start shell: ' + err.message);
-                    return;
+                    console.error("SFTP initialization failed:", err);
+                    // We continue with shell even if SFTP fails, but warn user?
                 }
-                console.log(`Shell started for ${socket.id}, OS: ${distro}`);
-                connections.set(socket.id, { client, stream, distro });
-                socket.emit('ssh:distro', distro);
-                socket.emit('ssh:status', 'connected');
 
-                stream.on('data', (data) => {
+                client.shell({ term: 'xterm-256color', cols: 80, rows: 24 }, (err, stream) => {
+                    if (err) {
+                        socket.emit('ssh:error', 'Failed to start shell: ' + err.message);
+                        return;
+                    }
+                    console.log(`Shell started for ${socket.id}, OS: ${distro}`);
+                    connections.set(socket.id, { client, stream, distro, sftp });
+                    socket.emit('ssh:distro', distro);
+                    socket.emit('ssh:status', 'connected');
+
+                    stream.on('data', (data) => {
                     let str = data.toString();
 
                     // Hide echoed command marker from output
@@ -447,6 +454,153 @@ io.on('connection', (socket) => {
     } catch (err) {
       console.error('Failed to save session queue:', err);
     }
+  });
+
+  // --- File Manager Endpoints ---
+
+  socket.on('files:list', (pathStr) => {
+    const session = connections.get(socket.id);
+    if (!session || !session.sftp) {
+        socket.emit('files:error', 'SFTP not available');
+        return;
+    }
+
+    session.sftp.readdir(pathStr, (err, list) => {
+        if (err) {
+            socket.emit('files:error', 'Failed to list directory: ' + err.message);
+            return;
+        }
+        // Normalize list
+        const files = list.map(item => ({
+            name: item.filename,
+            type: item.attrs.isDirectory() ? 'd' : 'f',
+            size: item.attrs.size,
+            date: new Date(item.attrs.mtime * 1000).toISOString(),
+            permissions: item.attrs.mode
+        }));
+        socket.emit('files:list:data', { path: pathStr, files });
+    });
+  });
+
+  socket.on('files:create_dir', (pathStr) => {
+      const session = connections.get(socket.id);
+      if (!session || !session.sftp) return;
+
+      session.sftp.mkdir(pathStr, (err) => {
+          if (err) socket.emit('files:error', `Failed to create directory: ${err.message}`);
+          else socket.emit('files:action:success', { action: 'mkdir', path: pathStr });
+      });
+  });
+
+  socket.on('files:delete', (pathStr) => {
+      const session = connections.get(socket.id);
+      if (!session || !session.sftp) return;
+
+      // Note: sftp.unlink is for files, rmdir for directories.
+      // We need to check type first or try one then the other?
+      // Or frontend tells us? For simplicity, try unlink, if fail try rmdir?
+      // Or stat it first?
+      session.sftp.stat(pathStr, (err, stats) => {
+          if (err) {
+               socket.emit('files:error', `Delete failed (stat): ${err.message}`);
+               return;
+          }
+          if (stats.isDirectory()) {
+              session.sftp.rmdir(pathStr, (err) => {
+                  if (err) socket.emit('files:error', `Failed to delete directory: ${err.message}`);
+                  else socket.emit('files:action:success', { action: 'delete', path: pathStr });
+              });
+          } else {
+              session.sftp.unlink(pathStr, (err) => {
+                  if (err) socket.emit('files:error', `Failed to delete file: ${err.message}`);
+                  else socket.emit('files:action:success', { action: 'delete', path: pathStr });
+              });
+          }
+      });
+  });
+
+  // --- File Transfer Handlers ---
+
+  socket.on('files:upload:start', ({ path: filePath }) => {
+      const session = connections.get(socket.id);
+      if (!session || !session.sftp) {
+        socket.emit('files:error', 'SFTP not available');
+        return;
+      }
+
+      // Open stream or create file
+      // We will use append/write chunks. But simple way is createsWriteStream
+      // But we can't easily pipe socket data to it unless we handle chunks manually.
+      // We'll store the write stream in a map if we want to stream properly?
+      // Or just open the file handle?
+      // Let's use `createWriteStream` and store it in session.uploads
+
+      try {
+          if (!session.uploads) session.uploads = new Map();
+
+          const writeStream = session.sftp.createWriteStream(filePath);
+
+          writeStream.on('error', (err) => {
+              socket.emit('files:error', `Upload error: ${err.message}`);
+              session.uploads.delete(filePath);
+          });
+
+          writeStream.on('close', () => {
+              socket.emit('files:upload:complete', { path: filePath });
+              session.uploads.delete(filePath);
+          });
+
+          session.uploads.set(filePath, writeStream);
+          socket.emit('files:upload:ready', { path: filePath });
+
+      } catch (err) {
+          socket.emit('files:error', `Failed to start upload: ${err.message}`);
+      }
+  });
+
+  socket.on('files:upload:chunk', ({ path: filePath, data, done }) => {
+      const session = connections.get(socket.id);
+      if (!session || !session.uploads) return;
+
+      const stream = session.uploads.get(filePath);
+      if (stream) {
+          // data is Buffer or Uint8Array? Socket.io handles it?
+          // If sent as binary, it's Buffer.
+          stream.write(data, (err) => {
+              if (err) {
+                  socket.emit('files:error', `Write error: ${err.message}`);
+                  return;
+              }
+              // Ack chunk if needed?
+              socket.emit('files:upload:ack', { path: filePath });
+
+              if (done) {
+                  stream.end();
+              }
+          });
+      }
+  });
+
+  socket.on('files:download', ({ path: filePath }) => {
+      const session = connections.get(socket.id);
+      if (!session || !session.sftp) {
+          socket.emit('files:error', 'SFTP not available');
+          return;
+      }
+
+      const readStream = session.sftp.createReadStream(filePath);
+
+      readStream.on('data', (chunk) => {
+          socket.emit('files:download:chunk', { path: filePath, chunk });
+      });
+
+      readStream.on('close', () => {
+          socket.emit('files:download:complete', { path: filePath });
+      });
+
+      readStream.on('error', (err) => {
+          socket.emit('files:error', `Download failed: ${err.message}`);
+      });
   });
 
   const cleanup = async () => {
