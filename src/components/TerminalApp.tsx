@@ -9,7 +9,8 @@ import { SSHProfile, TerminalEntry, CommandGenerationResult, ConnectionStatus, C
 import { generateLinuxCommand, generateCommandFix } from '../services/geminiService';
 import { socket, connectSocket } from '../services/sshService';
 import { SAMPLE_PROMPTS } from '../constants';
-import { Send, Play, Cpu, AlertTriangle, Command, Link, Keyboard, ServerOff, Sparkles, Terminal as TerminalIcon, Pause, RefreshCw, XCircle, SkipForward, Type } from 'lucide-react';
+import { Send, Play, Cpu, AlertTriangle, Command, Link, Keyboard, ServerOff, Sparkles, Terminal as TerminalIcon, Pause, RefreshCw, XCircle, SkipForward, Type, Folder } from 'lucide-react';
+import { FileManagerPanel } from './FileManager/FileManagerPanel';
 
 const API_URL = 'http://localhost:3001';
 
@@ -26,6 +27,9 @@ const TerminalApp: React.FC = () => {
   // or simple side-logging. For now, we'll use it to accumulate data for AI context.
   const [sessionLog, setSessionLog] = useState('');
   const [input, setInput] = useState('');
+
+  // UI State
+  const [showFileManager, setShowFileManager] = useState(false);
 
   // New State for Prompts visibility
   const [showPrompts, setShowPrompts] = useState(false);
@@ -594,6 +598,17 @@ const TerminalApp: React.FC = () => {
              </div>
              
              <div className="flex items-center gap-4">
+                 {/* File Manager Toggle */}
+                 {isConnected && (
+                     <button
+                        onClick={() => setShowFileManager(!showFileManager)}
+                        className={`p-1.5 rounded transition-colors ${showFileManager ? 'text-blue-400 bg-blue-900/20' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800'}`}
+                        title="File Manager"
+                     >
+                         <Folder size={18} />
+                     </button>
+                 )}
+
                  {/* Font Size Selector */}
                  <div className="flex items-center gap-2">
                      <Type size={14} className="text-gray-500"/>
@@ -647,6 +662,11 @@ const TerminalApp: React.FC = () => {
             <div className="flex-1 p-4 pb-4 overflow-hidden flex flex-col bg-gray-900 min-h-0">
                 <Terminal socket={socket} fontSize={fontSize} />
             </div>
+
+            {/* File Manager Panel */}
+            {showFileManager && isConnected && (
+                <FileManagerPanel onClose={() => setShowFileManager(false)} />
+            )}
 
             {/* Right Sidebar: Command Queue */}
             {commandQueue.length > 0 && (

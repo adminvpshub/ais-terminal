@@ -369,7 +369,33 @@ io.on('connection', (socket) => {
                     return;
                 }
                 console.log(`Shell started for ${socket.id}, OS: ${distro}`);
+
+                // Initialize SFTP
+                client.sftp((err, sftp) => {
+                    if (err) {
+                        console.error("SFTP Init Error:", err);
+                        // We don't fail the connection, just SFTP won't work
+                    } else {
+                        const session = connections.get(socket.id);
+                        if (session) {
+                            session.sftp = sftp;
+                        } else {
+                            // If race condition where shell added it first?
+                            // connections.set might not have happened yet if we do this parallel.
+                            // But here we are inside startShell.
+                            // connections.set happens below.
+                            // Wait, connections.set is CALLED below.
+                        }
+                    }
+                });
+
                 connections.set(socket.id, { client, stream, distro });
+                // We need to update the session object with SFTP when it becomes available.
+                // The SFTP callback is async.
+
+                // Let's refactor slightly to ensure clean storage
+                // But connections.get(socket.id) inside the callback works because `connections.set` is synchronous below.
+
                 socket.emit('ssh:distro', distro);
                 socket.emit('ssh:status', 'connected');
 
@@ -430,6 +456,148 @@ io.on('connection', (socket) => {
     if (session && session.stream) {
         session.stream.setWindow(rows, cols, 0, 0);
     }
+  });
+
+  // --- File Manager Handlers ---
+
+  socket.on('files:list', (path) => {
+    const session = connections.get(socket.id);
+    if (!session || !session.sftp) {
+        socket.emit('files:error', 'SFTP not available');
+        return;
+    }
+    const targetPath = path || '.';
+    session.sftp.readdir(targetPath, (err, list) => {
+        if (err) {
+            socket.emit('files:error', `List failed: ${err.message}`);
+            return;
+        }
+        // Normalize list
+        // item: { filename, longname, attrs: { size, mtime, atime, uid, gid, mode } }
+        const files = list.map(item => ({
+            name: item.filename,
+            isDirectory: (item.attrs.mode & 0o40000) === 0o40000,
+            size: item.attrs.size,
+            mtime: item.attrs.mtime * 1000, // Convert to ms
+            permissions: item.attrs.mode
+        }));
+
+        // If path is '.', resolve real path
+        if (targetPath === '.') {
+             session.sftp.realpath('.', (err, absPath) => {
+                 socket.emit('files:list', { path: absPath || '/', files });
+             });
+        } else {
+             socket.emit('files:list', { path: targetPath, files });
+        }
+    });
+  });
+
+  socket.on('files:mkdir', (path) => {
+      const session = connections.get(socket.id);
+      if (!session || !session.sftp) return;
+      session.sftp.mkdir(path, (err) => {
+          if (err) socket.emit('files:error', `Mkdir failed: ${err.message}`);
+          else socket.emit('files:action_success', 'mkdir');
+      });
+  });
+
+  socket.on('files:delete', (path) => {
+      const session = connections.get(socket.id);
+      if (!session || !session.sftp) return;
+
+      // Try unlink (file) first, then rmdir (dir)
+      session.sftp.unlink(path, (err) => {
+          if (err) {
+              // If failed, try rmdir
+              session.sftp.rmdir(path, (err2) => {
+                  if (err2) socket.emit('files:error', `Delete failed: ${err.message}`);
+                  else socket.emit('files:action_success', 'delete');
+              });
+          } else {
+              socket.emit('files:action_success', 'delete');
+          }
+      });
+  });
+
+  socket.on('files:rename', ({ oldPath, newPath }) => {
+      const session = connections.get(socket.id);
+      if (!session || !session.sftp) return;
+      session.sftp.rename(oldPath, newPath, (err) => {
+          if (err) socket.emit('files:error', `Rename failed: ${err.message}`);
+          else socket.emit('files:action_success', 'rename');
+      });
+  });
+
+  // --- File Transfer Handlers ---
+
+  socket.on('files:upload:start', ({ path: filePath }) => {
+      const session = connections.get(socket.id);
+      if (!session || !session.sftp) return;
+
+      try {
+          // If a stream exists, close it (cleanup)
+          if (session.uploadStream) {
+              session.uploadStream.end();
+          }
+
+          const stream = session.sftp.createWriteStream(filePath);
+          session.uploadStream = stream;
+
+          stream.on('close', () => {
+             // Upload finished (handled in end usually)
+             socket.emit('files:upload:success', filePath);
+             session.uploadStream = null;
+          });
+
+          stream.on('error', (err) => {
+             socket.emit('files:error', `Upload failed: ${err.message}`);
+             session.uploadStream = null;
+          });
+
+          socket.emit('files:upload:ready');
+      } catch (err) {
+          socket.emit('files:error', `Upload start failed: ${err.message}`);
+      }
+  });
+
+  socket.on('files:upload:chunk', (data) => {
+      const session = connections.get(socket.id);
+      if (session && session.uploadStream) {
+          session.uploadStream.write(data);
+      }
+  });
+
+  socket.on('files:upload:end', () => {
+      const session = connections.get(socket.id);
+      if (session && session.uploadStream) {
+          session.uploadStream.end();
+          // Success emitted in 'close' event
+      }
+  });
+
+  socket.on('files:download:start', ({ path: filePath }) => {
+      const session = connections.get(socket.id);
+      if (!session || !session.sftp) return;
+
+      try {
+          const stream = session.sftp.createReadStream(filePath);
+
+          stream.on('data', (chunk) => {
+              socket.emit('files:download:chunk', chunk);
+          });
+
+          stream.on('close', () => {
+              socket.emit('files:download:end');
+          });
+
+          stream.on('error', (err) => {
+              socket.emit('files:error', `Download failed: ${err.message}`);
+          });
+
+      } catch (err) {
+          socket.emit('files:error', `Download start failed: ${err.message}`);
+      }
   });
 
   socket.on('ssh:disconnect', () => {
