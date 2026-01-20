@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { fileService, FileEntry } from '../../services/fileService';
 import { socket } from '../../services/sshService';
 import { FileRow } from './FileRow';
+import { ConfirmationModal } from '../ConfirmationModal';
 import { FolderPlus, Upload, RefreshCw, ChevronRight, Home, ArrowUp, X } from 'lucide-react';
 
 interface FileManagerPanelProps {
@@ -18,6 +19,19 @@ export const FileManagerPanel: React.FC<FileManagerPanelProps> = ({ onClose }) =
     // Inline editing states
     const [isCreatingFolder, setIsCreatingFolder] = useState(false);
     const [renamingFileName, setRenamingFileName] = useState<string | null>(null);
+
+    // Confirmation Modal State
+    const [confirmation, setConfirmation] = useState<{
+        isOpen: boolean;
+        title: string;
+        message: string;
+        onConfirm: () => void;
+    }>({
+        isOpen: false,
+        title: '',
+        message: '',
+        onConfirm: () => {}
+    });
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -136,10 +150,16 @@ export const FileManagerPanel: React.FC<FileManagerPanelProps> = ({ onClose }) =
     };
 
     const handleDelete = (file: FileEntry) => {
-        if (confirm(`Are you sure you want to delete ${file.name}?`)) {
-            const path = currentPath === '/' ? `/${file.name}` : `${currentPath}/${file.name}`;
-            fileService.deleteFile(path);
-        }
+        setConfirmation({
+            isOpen: true,
+            title: 'Delete File',
+            message: `Are you sure you want to delete "${file.name}"? This action cannot be undone.`,
+            onConfirm: () => {
+                const path = currentPath === '/' ? `/${file.name}` : `${currentPath}/${file.name}`;
+                fileService.deleteFile(path);
+                setConfirmation(prev => ({ ...prev, isOpen: false }));
+            }
+        });
     };
 
     const handleRename = (file: FileEntry) => {
@@ -231,6 +251,16 @@ export const FileManagerPanel: React.FC<FileManagerPanelProps> = ({ onClose }) =
                     {error}
                 </div>
             )}
+
+            <ConfirmationModal
+                isOpen={confirmation.isOpen}
+                title={confirmation.title}
+                message={confirmation.message}
+                onConfirm={confirmation.onConfirm}
+                onCancel={() => setConfirmation(prev => ({ ...prev, isOpen: false }))}
+                confirmLabel="Delete"
+                variant="danger"
+            />
 
             {/* File List */}
             <div className="flex-1 overflow-y-auto p-1 scrollbar-thin">
