@@ -46,10 +46,9 @@ export const FileManagerPanel: React.FC<FileManagerPanelProps> = ({ onClose }) =
         };
 
         const onError = (msg: string) => {
-            if (msg.includes('List failed') || msg.includes('Mkdir failed') || msg.includes('Delete failed')) {
-                setError(msg);
-                setIsLoading(false);
-            }
+            console.error("File Manager Error:", msg);
+            setError(msg);
+            setIsLoading(false);
         };
 
         const onActionSuccess = (action: string) => {
