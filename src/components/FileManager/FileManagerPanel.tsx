@@ -3,7 +3,7 @@ import { fileService, FileEntry } from '../../services/fileService';
 import { socket } from '../../services/sshService';
 import { FileRow } from './FileRow';
 import { ConfirmationModal } from '../ConfirmationModal';
-import { FolderPlus, Upload, RefreshCw, ChevronRight, Home, ArrowUp, X } from 'lucide-react';
+import { FolderPlus, Upload, RefreshCw, ChevronRight, Home, ArrowUp, X, Eye, EyeOff } from 'lucide-react';
 
 interface FileManagerPanelProps {
     onClose: () => void;
@@ -15,6 +15,7 @@ export const FileManagerPanel: React.FC<FileManagerPanelProps> = ({ onClose }) =
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+    const [showHiddenFiles, setShowHiddenFiles] = useState(false);
 
     // Inline editing states
     const [isCreatingFolder, setIsCreatingFolder] = useState(false);
@@ -196,6 +197,9 @@ export const FileManagerPanel: React.FC<FileManagerPanelProps> = ({ onClose }) =
                 <button onClick={refresh} className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-700 rounded">
                     <RefreshCw size={16} className={isLoading ? "animate-spin" : ""} />
                 </button>
+                <button onClick={() => setShowHiddenFiles(!showHiddenFiles)} className={`p-1.5 rounded transition-colors ${showHiddenFiles ? 'text-blue-400 bg-blue-900/20' : 'text-gray-400 hover:text-white hover:bg-gray-700'}`} title={showHiddenFiles ? "Hide System Files" : "Show System Files"}>
+                    {showHiddenFiles ? <Eye size={16} /> : <EyeOff size={16} />}
+                </button>
                 <div className="h-4 w-px bg-gray-700 mx-1"></div>
                 <button onClick={handleMkdir} className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-700 rounded" title="New Folder">
                     <FolderPlus size={16} />
@@ -276,7 +280,9 @@ export const FileManagerPanel: React.FC<FileManagerPanelProps> = ({ onClose }) =
                         onRenameCancel={() => setIsCreatingFolder(false)}
                     />
                 )}
-                {files.map((file, idx) => (
+                {files
+                    .filter(file => showHiddenFiles || !file.name.startsWith('.'))
+                    .map((file, idx) => (
                     <FileRow
                         key={`${file.name}-${idx}`}
                         file={file}

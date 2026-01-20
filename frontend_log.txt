@@ -36,3 +36,32 @@
       at async EnvironmentPluginContainer.transform (file:///app/node_modules/vite/dist/node/chunks/dep-D4NMHUTW.js:42323:18)
       at async loadAndTransform (file:///app/node_modules/vite/dist/node/chunks/dep-D4NMHUTW.js:35739:27)
       at async viteTransformMiddleware (file:///app/node_modules/vite/dist/node/chunks/dep-D4NMHUTW.js:37254:24)
+3:57:42 AM [vite] (client) hmr update /src/components/FileManager/FileManagerPanel.tsx
+3:58:12 AM [vite] (client) Pre-transform error: Failed to resolve import "../../components/Button" from "src/components/ConfirmationModal.tsx". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /app/src/components/ConfirmationModal.tsx:3:23
+  1  |  import { jsxDEV } from "react/jsx-dev-runtime";
+  2  |  import { AlertTriangle, AlertCircle } from "lucide-react";
+  3  |  import { Button } from "../../components/Button";
+     |                          ^
+  4  |  export const ConfirmationModal = ({
+  5  |    isOpen,
+3:58:13 AM [vite] Internal server error: Failed to resolve import "../../components/Button" from "src/components/ConfirmationModal.tsx". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /app/src/components/ConfirmationModal.tsx:3:23
+  1  |  import { jsxDEV } from "react/jsx-dev-runtime";
+  2  |  import { AlertTriangle, AlertCircle } from "lucide-react";
+  3  |  import { Button } from "../../components/Button";
+     |                          ^
+  4  |  export const ConfirmationModal = ({
+  5  |    isOpen,
+      at TransformPluginContext._formatLog (file:///app/node_modules/vite/dist/node/chunks/dep-D4NMHUTW.js:42528:41)
+      at TransformPluginContext.error (file:///app/node_modules/vite/dist/node/chunks/dep-D4NMHUTW.js:42525:16)
+      at normalizeUrl (file:///app/node_modules/vite/dist/node/chunks/dep-D4NMHUTW.js:40504:23)
+      at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at async file:///app/node_modules/vite/dist/node/chunks/dep-D4NMHUTW.js:40623:37
+      at async Promise.all (index 2)
+      at async TransformPluginContext.transform (file:///app/node_modules/vite/dist/node/chunks/dep-D4NMHUTW.js:40550:7)
+      at async EnvironmentPluginContainer.transform (file:///app/node_modules/vite/dist/node/chunks/dep-D4NMHUTW.js:42323:18)
+      at async loadAndTransform (file:///app/node_modules/vite/dist/node/chunks/dep-D4NMHUTW.js:35739:27)
+      at async viteTransformMiddleware (file:///app/node_modules/vite/dist/node/chunks/dep-D4NMHUTW.js:37254:24)
