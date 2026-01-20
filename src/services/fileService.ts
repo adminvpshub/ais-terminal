@@ -32,6 +32,12 @@ export const fileService = {
 
     uploadFile: (file: File, remotePath: string, onProgress: (percent: number) => void) => {
         return new Promise<void>((resolve, reject) => {
+            const MAX_SIZE = 200 * 1024 * 1024; // 200MB
+            if (file.size > MAX_SIZE) {
+                reject(new Error("File exceeds 200MB upload limit"));
+                return;
+            }
+
             const chunkSize = 64 * 1024; // 64KB chunks
             const totalSize = file.size;
             let offset = 0;
