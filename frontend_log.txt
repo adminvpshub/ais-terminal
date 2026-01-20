@@ -9,3 +9,220 @@
   ➜  Network: use --host to expose
 2:25:16 AM [vite] (client) hmr update /src/components/TerminalApp.tsx
 2:26:17 AM [vite] (client) hmr update /src/components/TerminalApp.tsx
+3:12:22 AM [vite] (client) hmr update /src/components/FileManager/FileRow.tsx
+3:12:46 AM [vite] (client) hmr update /src/components/FileManager/FileManagerPanel.tsx
+3:13:29 AM [vite] (client) Pre-transform error: /app/src/components/FileManager/FileRow.tsx: Adjacent JSX elements must be wrapped in an enclosing tag. Did you want a JSX fragment <>...</>? (116:16)
+
+  114 |                     <Edit2 size={14} />
+  115 |                 </button>
+> 116 |                 <button onClick={(e) => { e.stopPropagation(); onDelete(file); }} className="p-1.5 hover:bg-gray-700 rounded text-gray-400 hover:text-red-400" title="Delete">
+      |                 ^
+  117 |                     <Trash2 size={14} />
+  118 |                 </button>
+  119 |             </div>
+  Plugin: vite:react-babel
+  File: /app/src/components/FileManager/FileRow.tsx:116:16
+  114|                      <Edit2 size={14} />
+  115|                  </button>
+  116|                  <button onClick={(e) => { e.stopPropagation(); onDelete(file); }} className="p-1.5 hover:bg-gray-700 rounded text-gray-400 hover:text-red-400" title="Delete">
+     |                  ^
+  117|                      <Trash2 size={14} />
+  118|                  </button>
+3:13:30 AM [vite] Internal server error: /app/src/components/FileManager/FileRow.tsx: Adjacent JSX elements must be wrapped in an enclosing tag. Did you want a JSX fragment <>...</>? (116:16)
+
+  114 |                     <Edit2 size={14} />
+  115 |                 </button>
+> 116 |                 <button onClick={(e) => { e.stopPropagation(); onDelete(file); }} className="p-1.5 hover:bg-gray-700 rounded text-gray-400 hover:text-red-400" title="Delete">
+      |                 ^
+  117 |                     <Trash2 size={14} />
+  118 |                 </button>
+  119 |             </div>
+  Plugin: vite:react-babel
+  File: /app/src/components/FileManager/FileRow.tsx:116:16
+  114|                      <Edit2 size={14} />
+  115|                  </button>
+  116|                  <button onClick={(e) => { e.stopPropagation(); onDelete(file); }} className="p-1.5 hover:bg-gray-700 rounded text-gray-400 hover:text-red-400" title="Delete">
+     |                  ^
+  117|                      <Trash2 size={14} />
+  118|                  </button>
+      at constructor (/app/node_modules/@babel/parser/lib/index.js:365:19)
+      at TypeScriptParserMixin.raise (/app/node_modules/@babel/parser/lib/index.js:6599:19)
+      at TypeScriptParserMixin.jsxParseElementAt (/app/node_modules/@babel/parser/lib/index.js:4742:18)
+      at TypeScriptParserMixin.jsxParseElement (/app/node_modules/@babel/parser/lib/index.js:4749:17)
+      at TypeScriptParserMixin.parseExprAtom (/app/node_modules/@babel/parser/lib/index.js:4762:19)
+      at TypeScriptParserMixin.parseExprSubscripts (/app/node_modules/@babel/parser/lib/index.js:11071:23)
+      at TypeScriptParserMixin.parseUpdate (/app/node_modules/@babel/parser/lib/index.js:11056:21)
+      at TypeScriptParserMixin.parseMaybeUnary (/app/node_modules/@babel/parser/lib/index.js:11036:23)
+      at TypeScriptParserMixin.parseMaybeUnary (/app/node_modules/@babel/parser/lib/index.js:9827:18)
+      at TypeScriptParserMixin.parseMaybeUnaryOrPrivate (/app/node_modules/@babel/parser/lib/index.js:10889:61)
+      at TypeScriptParserMixin.parseExprOps (/app/node_modules/@babel/parser/lib/index.js:10894:23)
+      at TypeScriptParserMixin.parseMaybeConditional (/app/node_modules/@babel/parser/lib/index.js:10871:23)
+      at TypeScriptParserMixin.parseMaybeAssign (/app/node_modules/@babel/parser/lib/index.js:10821:21)
+      at /app/node_modules/@babel/parser/lib/index.js:9765:39
+      at TypeScriptParserMixin.tryParse (/app/node_modules/@babel/parser/lib/index.js:6907:20)
+      at TypeScriptParserMixin.parseMaybeAssign (/app/node_modules/@babel/parser/lib/index.js:9765:18)
+      at TypeScriptParserMixin.parseExpressionBase (/app/node_modules/@babel/parser/lib/index.js:10774:23)
+      at /app/node_modules/@babel/parser/lib/index.js:10770:39
+      at TypeScriptParserMixin.allowInAnd (/app/node_modules/@babel/parser/lib/index.js:12411:16)
+      at TypeScriptParserMixin.parseExpression (/app/node_modules/@babel/parser/lib/index.js:10770:17)
+      at TypeScriptParserMixin.parseStatementContent (/app/node_modules/@babel/parser/lib/index.js:12885:23)
+      at TypeScriptParserMixin.parseStatementContent (/app/node_modules/@babel/parser/lib/index.js:9508:18)
+      at TypeScriptParserMixin.parseStatementLike (/app/node_modules/@babel/parser/lib/index.js:12757:17)
+      at TypeScriptParserMixin.parseModuleItem (/app/node_modules/@babel/parser/lib/index.js:12734:17)
+      at TypeScriptParserMixin.parseBlockOrModuleBlockBody (/app/node_modules/@babel/parser/lib/index.js:13306:36)
+      at TypeScriptParserMixin.parseBlockBody (/app/node_modules/@babel/parser/lib/index.js:13299:10)
+      at TypeScriptParserMixin.parseProgram (/app/node_modules/@babel/parser/lib/index.js:12612:10)
+      at TypeScriptParserMixin.parseTopLevel (/app/node_modules/@babel/parser/lib/index.js:12602:25)
+      at TypeScriptParserMixin.parse (/app/node_modules/@babel/parser/lib/index.js:14478:25)
+      at TypeScriptParserMixin.parse (/app/node_modules/@babel/parser/lib/index.js:10116:18)
+      at parse (/app/node_modules/@babel/parser/lib/index.js:14512:38)
+      at parser (/app/node_modules/@babel/core/lib/parser/index.js:41:34)
+      at parser.next (<anonymous>)
+      at normalizeFile (/app/node_modules/@babel/core/lib/transformation/normalize-file.js:64:37)
+      at normalizeFile.next (<anonymous>)
+      at run (/app/node_modules/@babel/core/lib/transformation/index.js:22:50)
+      at run.next (<anonymous>)
+      at transform (/app/node_modules/@babel/core/lib/transform.js:22:33)
+      at transform.next (<anonymous>)
+      at step (/app/node_modules/gensync/index.js:261:32)
+      at /app/node_modules/gensync/index.js:273:13
+      at async.call.result.err.err (/app/node_modules/gensync/index.js:223:11)
+      at /app/node_modules/gensync/index.js:189:28
+      at /app/node_modules/@babel/core/lib/gensync-utils/async.js:67:7
+      at /app/node_modules/gensync/index.js:113:33
+      at step (/app/node_modules/gensync/index.js:287:14)
+      at /app/node_modules/gensync/index.js:273:13
+      at async.call.result.err.err (/app/node_modules/gensync/index.js:223:11)
+3:14:17 AM [vite] (client) hmr update /src/components/TerminalApp.tsx
+3:14:27 AM [vite] Internal server error: /app/src/components/FileManager/FileRow.tsx: Adjacent JSX elements must be wrapped in an enclosing tag. Did you want a JSX fragment <>...</>? (116:16)
+
+  114 |                     <Edit2 size={14} />
+  115 |                 </button>
+> 116 |                 <button onClick={(e) => { e.stopPropagation(); onDelete(file); }} className="p-1.5 hover:bg-gray-700 rounded text-gray-400 hover:text-red-400" title="Delete">
+      |                 ^
+  117 |                     <Trash2 size={14} />
+  118 |                 </button>
+  119 |             </div>
+  Plugin: vite:react-babel
+  File: /app/src/components/FileManager/FileRow.tsx:116:16
+  114|                      <Edit2 size={14} />
+  115|                  </button>
+  116|                  <button onClick={(e) => { e.stopPropagation(); onDelete(file); }} className="p-1.5 hover:bg-gray-700 rounded text-gray-400 hover:text-red-400" title="Delete">
+     |                  ^
+  117|                      <Trash2 size={14} />
+  118|                  </button>
+      at constructor (/app/node_modules/@babel/parser/lib/index.js:365:19)
+      at TypeScriptParserMixin.raise (/app/node_modules/@babel/parser/lib/index.js:6599:19)
+      at TypeScriptParserMixin.jsxParseElementAt (/app/node_modules/@babel/parser/lib/index.js:4742:18)
+      at TypeScriptParserMixin.jsxParseElement (/app/node_modules/@babel/parser/lib/index.js:4749:17)
+      at TypeScriptParserMixin.parseExprAtom (/app/node_modules/@babel/parser/lib/index.js:4762:19)
+      at TypeScriptParserMixin.parseExprSubscripts (/app/node_modules/@babel/parser/lib/index.js:11071:23)
+      at TypeScriptParserMixin.parseUpdate (/app/node_modules/@babel/parser/lib/index.js:11056:21)
+      at TypeScriptParserMixin.parseMaybeUnary (/app/node_modules/@babel/parser/lib/index.js:11036:23)
+      at TypeScriptParserMixin.parseMaybeUnary (/app/node_modules/@babel/parser/lib/index.js:9827:18)
+      at TypeScriptParserMixin.parseMaybeUnaryOrPrivate (/app/node_modules/@babel/parser/lib/index.js:10889:61)
+      at TypeScriptParserMixin.parseExprOps (/app/node_modules/@babel/parser/lib/index.js:10894:23)
+      at TypeScriptParserMixin.parseMaybeConditional (/app/node_modules/@babel/parser/lib/index.js:10871:23)
+      at TypeScriptParserMixin.parseMaybeAssign (/app/node_modules/@babel/parser/lib/index.js:10821:21)
+      at /app/node_modules/@babel/parser/lib/index.js:9765:39
+      at TypeScriptParserMixin.tryParse (/app/node_modules/@babel/parser/lib/index.js:6907:20)
+      at TypeScriptParserMixin.parseMaybeAssign (/app/node_modules/@babel/parser/lib/index.js:9765:18)
+      at TypeScriptParserMixin.parseExpressionBase (/app/node_modules/@babel/parser/lib/index.js:10774:23)
+      at /app/node_modules/@babel/parser/lib/index.js:10770:39
+      at TypeScriptParserMixin.allowInAnd (/app/node_modules/@babel/parser/lib/index.js:12411:16)
+      at TypeScriptParserMixin.parseExpression (/app/node_modules/@babel/parser/lib/index.js:10770:17)
+      at TypeScriptParserMixin.parseStatementContent (/app/node_modules/@babel/parser/lib/index.js:12885:23)
+      at TypeScriptParserMixin.parseStatementContent (/app/node_modules/@babel/parser/lib/index.js:9508:18)
+      at TypeScriptParserMixin.parseStatementLike (/app/node_modules/@babel/parser/lib/index.js:12757:17)
+      at TypeScriptParserMixin.parseModuleItem (/app/node_modules/@babel/parser/lib/index.js:12734:17)
+      at TypeScriptParserMixin.parseBlockOrModuleBlockBody (/app/node_modules/@babel/parser/lib/index.js:13306:36)
+      at TypeScriptParserMixin.parseBlockBody (/app/node_modules/@babel/parser/lib/index.js:13299:10)
+      at TypeScriptParserMixin.parseProgram (/app/node_modules/@babel/parser/lib/index.js:12612:10)
+      at TypeScriptParserMixin.parseTopLevel (/app/node_modules/@babel/parser/lib/index.js:12602:25)
+      at TypeScriptParserMixin.parse (/app/node_modules/@babel/parser/lib/index.js:14478:25)
+      at TypeScriptParserMixin.parse (/app/node_modules/@babel/parser/lib/index.js:10116:18)
+      at parse (/app/node_modules/@babel/parser/lib/index.js:14512:38)
+      at parser (/app/node_modules/@babel/core/lib/parser/index.js:41:34)
+      at parser.next (<anonymous>)
+      at normalizeFile (/app/node_modules/@babel/core/lib/transformation/normalize-file.js:64:37)
+      at normalizeFile.next (<anonymous>)
+      at run (/app/node_modules/@babel/core/lib/transformation/index.js:22:50)
+      at run.next (<anonymous>)
+      at transform (/app/node_modules/@babel/core/lib/transform.js:22:33)
+      at transform.next (<anonymous>)
+      at step (/app/node_modules/gensync/index.js:261:32)
+      at /app/node_modules/gensync/index.js:273:13
+      at async.call.result.err.err (/app/node_modules/gensync/index.js:223:11)
+      at /app/node_modules/gensync/index.js:189:28
+      at /app/node_modules/@babel/core/lib/gensync-utils/async.js:67:7
+      at /app/node_modules/gensync/index.js:113:33
+      at step (/app/node_modules/gensync/index.js:287:14)
+      at /app/node_modules/gensync/index.js:273:13
+      at async.call.result.err.err (/app/node_modules/gensync/index.js:223:11)
+3:15:10 AM [vite] Internal server error: /app/src/components/FileManager/FileRow.tsx: Adjacent JSX elements must be wrapped in an enclosing tag. Did you want a JSX fragment <>...</>? (116:16)
+
+  114 |                     <Edit2 size={14} />
+  115 |                 </button>
+> 116 |                 <button onClick={(e) => { e.stopPropagation(); onDelete(file); }} className="p-1.5 hover:bg-gray-700 rounded text-gray-400 hover:text-red-400" title="Delete">
+      |                 ^
+  117 |                     <Trash2 size={14} />
+  118 |                 </button>
+  119 |             </div>
+  Plugin: vite:react-babel
+  File: /app/src/components/FileManager/FileRow.tsx:116:16
+  114|                      <Edit2 size={14} />
+  115|                  </button>
+  116|                  <button onClick={(e) => { e.stopPropagation(); onDelete(file); }} className="p-1.5 hover:bg-gray-700 rounded text-gray-400 hover:text-red-400" title="Delete">
+     |                  ^
+  117|                      <Trash2 size={14} />
+  118|                  </button>
+      at constructor (/app/node_modules/@babel/parser/lib/index.js:365:19)
+      at TypeScriptParserMixin.raise (/app/node_modules/@babel/parser/lib/index.js:6599:19)
+      at TypeScriptParserMixin.jsxParseElementAt (/app/node_modules/@babel/parser/lib/index.js:4742:18)
+      at TypeScriptParserMixin.jsxParseElement (/app/node_modules/@babel/parser/lib/index.js:4749:17)
+      at TypeScriptParserMixin.parseExprAtom (/app/node_modules/@babel/parser/lib/index.js:4762:19)
+      at TypeScriptParserMixin.parseExprSubscripts (/app/node_modules/@babel/parser/lib/index.js:11071:23)
+      at TypeScriptParserMixin.parseUpdate (/app/node_modules/@babel/parser/lib/index.js:11056:21)
+      at TypeScriptParserMixin.parseMaybeUnary (/app/node_modules/@babel/parser/lib/index.js:11036:23)
+      at TypeScriptParserMixin.parseMaybeUnary (/app/node_modules/@babel/parser/lib/index.js:9827:18)
+      at TypeScriptParserMixin.parseMaybeUnaryOrPrivate (/app/node_modules/@babel/parser/lib/index.js:10889:61)
+      at TypeScriptParserMixin.parseExprOps (/app/node_modules/@babel/parser/lib/index.js:10894:23)
+      at TypeScriptParserMixin.parseMaybeConditional (/app/node_modules/@babel/parser/lib/index.js:10871:23)
+      at TypeScriptParserMixin.parseMaybeAssign (/app/node_modules/@babel/parser/lib/index.js:10821:21)
+      at /app/node_modules/@babel/parser/lib/index.js:9765:39
+      at TypeScriptParserMixin.tryParse (/app/node_modules/@babel/parser/lib/index.js:6907:20)
+      at TypeScriptParserMixin.parseMaybeAssign (/app/node_modules/@babel/parser/lib/index.js:9765:18)
+      at TypeScriptParserMixin.parseExpressionBase (/app/node_modules/@babel/parser/lib/index.js:10774:23)
+      at /app/node_modules/@babel/parser/lib/index.js:10770:39
+      at TypeScriptParserMixin.allowInAnd (/app/node_modules/@babel/parser/lib/index.js:12411:16)
+      at TypeScriptParserMixin.parseExpression (/app/node_modules/@babel/parser/lib/index.js:10770:17)
+      at TypeScriptParserMixin.parseStatementContent (/app/node_modules/@babel/parser/lib/index.js:12885:23)
+      at TypeScriptParserMixin.parseStatementContent (/app/node_modules/@babel/parser/lib/index.js:9508:18)
+      at TypeScriptParserMixin.parseStatementLike (/app/node_modules/@babel/parser/lib/index.js:12757:17)
+      at TypeScriptParserMixin.parseModuleItem (/app/node_modules/@babel/parser/lib/index.js:12734:17)
+      at TypeScriptParserMixin.parseBlockOrModuleBlockBody (/app/node_modules/@babel/parser/lib/index.js:13306:36)
+      at TypeScriptParserMixin.parseBlockBody (/app/node_modules/@babel/parser/lib/index.js:13299:10)
+      at TypeScriptParserMixin.parseProgram (/app/node_modules/@babel/parser/lib/index.js:12612:10)
+      at TypeScriptParserMixin.parseTopLevel (/app/node_modules/@babel/parser/lib/index.js:12602:25)
+      at TypeScriptParserMixin.parse (/app/node_modules/@babel/parser/lib/index.js:14478:25)
+      at TypeScriptParserMixin.parse (/app/node_modules/@babel/parser/lib/index.js:10116:18)
+      at parse (/app/node_modules/@babel/parser/lib/index.js:14512:38)
+      at parser (/app/node_modules/@babel/core/lib/parser/index.js:41:34)
+      at parser.next (<anonymous>)
+      at normalizeFile (/app/node_modules/@babel/core/lib/transformation/normalize-file.js:64:37)
+      at normalizeFile.next (<anonymous>)
+      at run (/app/node_modules/@babel/core/lib/transformation/index.js:22:50)
+      at run.next (<anonymous>)
+      at transform (/app/node_modules/@babel/core/lib/transform.js:22:33)
+      at transform.next (<anonymous>)
+      at step (/app/node_modules/gensync/index.js:261:32)
+      at /app/node_modules/gensync/index.js:273:13
+      at async.call.result.err.err (/app/node_modules/gensync/index.js:223:11)
+      at /app/node_modules/gensync/index.js:189:28
+      at /app/node_modules/@babel/core/lib/gensync-utils/async.js:67:7
+      at /app/node_modules/gensync/index.js:113:33
+      at step (/app/node_modules/gensync/index.js:287:14)
+      at /app/node_modules/gensync/index.js:273:13
+      at async.call.result.err.err (/app/node_modules/gensync/index.js:223:11)
+3:16:49 AM [vite] (client) hmr update /src/components/FileManager/FileRow.tsx
+3:18:09 AM [vite] (client) hmr update /src/components/TerminalApp.tsx

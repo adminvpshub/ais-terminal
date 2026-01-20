@@ -15,11 +15,17 @@ export const FileManagerPanel: React.FC<FileManagerPanelProps> = ({ onClose }) =
     const [error, setError] = useState<string | null>(null);
     const [uploadProgress, setUploadProgress] = useState<number | null>(null);
 
+    // Inline editing states
+    const [isCreatingFolder, setIsCreatingFolder] = useState(false);
+    const [renamingFileName, setRenamingFileName] = useState<string | null>(null);
+
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const refresh = () => {
         setIsLoading(true);
         setError(null);
+        setIsCreatingFolder(false);
+        setRenamingFileName(null);
         fileService.listFiles(currentPath);
     };
 
@@ -117,10 +123,16 @@ export const FileManagerPanel: React.FC<FileManagerPanelProps> = ({ onClose }) =
     };
 
     const handleMkdir = () => {
-        const name = prompt("Enter folder name:");
-        if (name) {
+        setIsCreatingFolder(true);
+    };
+
+    const submitMkdir = (name: string) => {
+        if (name && name.trim()) {
             const path = currentPath === '/' ? `/${name}` : `${currentPath}/${name}`;
             fileService.createDirectory(path);
+            setIsCreatingFolder(false);
+        } else {
+            setIsCreatingFolder(false);
         }
     };
 
@@ -132,12 +144,16 @@ export const FileManagerPanel: React.FC<FileManagerPanelProps> = ({ onClose }) =
     };
 
     const handleRename = (file: FileEntry) => {
-        const newName = prompt("Rename to:", file.name);
+        setRenamingFileName(file.name);
+    };
+
+    const submitRename = (file: FileEntry, newName: string) => {
         if (newName && newName !== file.name) {
             const oldPath = currentPath === '/' ? `/${file.name}` : `${currentPath}/${file.name}`;
             const newPath = currentPath === '/' ? `/${newName}` : `${currentPath}/${newName}`;
             fileService.renameFile(oldPath, newPath);
         }
+        setRenamingFileName(null);
     };
 
     // Breadcrumbs logic
@@ -219,6 +235,18 @@ export const FileManagerPanel: React.FC<FileManagerPanelProps> = ({ onClose }) =
 
             {/* File List */}
             <div className="flex-1 overflow-y-auto p-1 scrollbar-thin">
+                {isCreatingFolder && (
+                    <FileRow
+                        file={{ name: '', isDirectory: true, size: 0, mtime: Date.now(), permissions: 0 }}
+                        onNavigate={() => {}}
+                        onDelete={() => {}}
+                        onRename={() => {}}
+                        onDownload={() => {}}
+                        isRenaming={true}
+                        onRenameSubmit={submitMkdir}
+                        onRenameCancel={() => setIsCreatingFolder(false)}
+                    />
+                )}
                 {files.map((file, idx) => (
                     <FileRow
                         key={`${file.name}-${idx}`}
@@ -227,9 +255,12 @@ export const FileManagerPanel: React.FC<FileManagerPanelProps> = ({ onClose }) =
                         onDelete={handleDelete}
                         onRename={handleRename}
                         onDownload={handleDownload}
+                        isRenaming={renamingFileName === file.name}
+                        onRenameSubmit={(newName) => submitRename(file, newName)}
+                        onRenameCancel={() => setRenamingFileName(null)}
                     />
                 ))}
-                {files.length === 0 && !isLoading && (
+                {files.length === 0 && !isCreatingFolder && !isLoading && (
                     <div className="text-center text-gray-600 text-xs py-8">
                         Empty directory
                     </div>

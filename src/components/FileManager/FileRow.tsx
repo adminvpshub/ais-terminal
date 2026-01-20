@@ -9,9 +9,38 @@ interface FileRowProps {
     onDelete: (file: FileEntry) => void;
     onRename: (file: FileEntry) => void;
     onDownload: (file: FileEntry) => void;
+
+    isRenaming?: boolean;
+    onRenameSubmit?: (newName: string) => void;
+    onRenameCancel?: () => void;
 }
 
-export const FileRow: React.FC<FileRowProps> = ({ file, onNavigate, onDelete, onRename, onDownload }) => {
+export const FileRow: React.FC<FileRowProps> = ({
+    file,
+    onNavigate,
+    onDelete,
+    onRename,
+    onDownload,
+    isRenaming,
+    onRenameSubmit,
+    onRenameCancel
+}) => {
+
+    const [renameValue, setRenameValue] = React.useState(file.name);
+
+    // Reset value when entering rename mode
+    React.useEffect(() => {
+        if (isRenaming) setRenameValue(file.name);
+    }, [isRenaming, file.name]);
+
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            onRenameSubmit?.(renameValue);
+        } else if (e.key === 'Escape') {
+            onRenameCancel?.();
+        }
+    };
 
     const formatSize = (bytes: number) => {
         if (bytes === 0) return '0 B';
@@ -28,33 +57,51 @@ export const FileRow: React.FC<FileRowProps> = ({ file, onNavigate, onDelete, on
     return (
         <div
             className="group flex items-center gap-3 p-2 hover:bg-gray-800 rounded cursor-pointer transition-colors text-sm border-b border-gray-800/50 last:border-0"
-            onDoubleClick={() => file.isDirectory && onNavigate(file)}
+            onDoubleClick={() => !isRenaming && file.isDirectory && onNavigate(file)}
         >
-            <div className="flex-shrink-0" onClick={() => file.isDirectory && onNavigate(file)}>
+            <div className="flex-shrink-0" onClick={() => !isRenaming && file.isDirectory && onNavigate(file)}>
                 <FileIcon name={file.name} isDirectory={file.isDirectory} />
             </div>
 
-            <div className="flex-1 min-w-0 overflow-hidden" onClick={() => file.isDirectory && onNavigate(file)}>
-                <div className="truncate text-gray-200 font-medium">{file.name}</div>
-                <div className="flex items-center gap-2 text-xs text-gray-500">
-                    {!file.isDirectory && <span>{formatSize(file.size)}</span>}
-                    <span>{formatDate(file.mtime)}</span>
-                </div>
+            <div className="flex-1 min-w-0 overflow-hidden" onClick={() => !isRenaming && file.isDirectory && onNavigate(file)}>
+                {isRenaming ? (
+                    <input
+                        type="text"
+                        value={renameValue}
+                        onChange={(e) => setRenameValue(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        onBlur={() => onRenameCancel?.()} // Or submit? Let's cancel for safety unless explicit enter
+                        autoFocus
+                        className="w-full bg-gray-800 text-gray-200 border border-blue-500 rounded px-1 py-0.5 text-sm outline-none"
+                        onClick={(e) => e.stopPropagation()}
+                    />
+                ) : (
+                    <>
+                        <div className="truncate text-gray-200 font-medium">{file.name}</div>
+                        <div className="flex items-center gap-2 text-xs text-gray-500">
+                            {!file.isDirectory && <span>{formatSize(file.size)}</span>}
+                            <span>{formatDate(file.mtime)}</span>
+                        </div>
+                    </>
+                )}
             </div>
 
-            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                {!file.isDirectory && (
-                     <button onClick={(e) => { e.stopPropagation(); onDownload(file); }} className="p-1.5 hover:bg-gray-700 rounded text-gray-400 hover:text-blue-400" title="Download">
-                        <Download size={14} />
+            {!isRenaming && (
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {!file.isDirectory && (
+                        <button onClick={(e) => { e.stopPropagation(); onDownload(file); }} className="p-1.5 hover:bg-gray-700 rounded text-gray-400 hover:text-blue-400" title="Download">
+                            <Download size={14} />
+                        </button>
+                    )}
+                    <button onClick={(e) => { e.stopPropagation(); onRename(file); }} className="p-1.5 hover:bg-gray-700 rounded text-gray-400 hover:text-yellow-400" title="Rename">
+                        <Edit2 size={14} />
                     </button>
-                )}
-                <button onClick={(e) => { e.stopPropagation(); onRename(file); }} className="p-1.5 hover:bg-gray-700 rounded text-gray-400 hover:text-yellow-400" title="Rename">
-                    <Edit2 size={14} />
-                </button>
-                <button onClick={(e) => { e.stopPropagation(); onDelete(file); }} className="p-1.5 hover:bg-gray-700 rounded text-gray-400 hover:text-red-400" title="Delete">
-                    <Trash2 size={14} />
-                </button>
-            </div>
+                    <button onClick={(e) => { e.stopPropagation(); onDelete(file); }} className="p-1.5 hover:bg-gray-700 rounded text-gray-400 hover:text-red-400" title="Delete">
+                        <Trash2 size={14} />
+                    </button>
+                </div>
+            )}
+            {isRenaming && <div className="w-8" />}
         </div>
     );
 };
