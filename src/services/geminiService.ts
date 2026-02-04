@@ -9,10 +9,8 @@ async function callAIGenerate(prompt: string, schema: any) {
         body: JSON.stringify({
             prompt,
             config: {
-                generationConfig: {
-                    responseMimeType: "application/json",
-                    responseSchema: schema
-                }
+                responseMimeType: "application/json",
+                responseSchema: schema
             }
         })
     });
