@@ -62,7 +62,7 @@ jobs:
             echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" > .env
 
             # Create or update docker-compose.prod.yml
-            cat <<'EOF' > docker-compose.prod.yml
+            sed 's/^            //' <<'EOF' > docker-compose.prod.yml
             services:
               app:
                 image: ghcr.io/adminvpshub/ais-terminal:latest
