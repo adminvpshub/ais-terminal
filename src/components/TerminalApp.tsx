@@ -46,6 +46,7 @@ const TerminalApp: React.FC = () => {
 
   const [isThinking, setIsThinking] = useState(false);
   const [backendError, setBackendError] = useState<string | null>(null);
+  const [aiError, setAiError] = useState<string | null>(null);
 
   // Auth State
   const [isPinSetup, setIsPinSetup] = useState<boolean>(() => !!localStorage.getItem('master_pin_hash'));
@@ -262,8 +263,10 @@ const TerminalApp: React.FC = () => {
              // Use the accumulated output 'currentOutput'
              const fix = await generateCommandFix(activeStep.command, currentOutput, detectedDistro || 'Linux');
              setSuggestedFix(fix);
-           } catch (e) {
+             setAiError(null);
+           } catch (e: any) {
              console.error('Failed to generate fix suggestion', e);
+             setAiError(e.message || "Failed to generate fix suggestion");
            } finally {
              setIsThinking(false);
            }
@@ -521,8 +524,10 @@ const TerminalApp: React.FC = () => {
     try {
       const result = await generateLinuxCommand(input, detectedDistro || 'Linux');
       setCommandQueue(result.steps);
-    } catch (error) {
+      setAiError(null);
+    } catch (error: any) {
       console.error('Command generation failed', error);
+      setAiError(error.message || "Failed to generate commands");
     } finally {
       setIsThinking(false);
     }
@@ -643,18 +648,21 @@ const TerminalApp: React.FC = () => {
         </div>
 
         {/* Error Banner */}
-        {backendError && (
+        {(backendError || aiError) && (
             <div className="bg-red-900/80 border-b border-red-500/50 px-4 py-3 flex items-start gap-3 animate-in slide-in-from-top-2">
-                <ServerOff className="text-red-400 mt-0.5 flex-shrink-0" size={18} />
+                {backendError ? <ServerOff className="text-red-400 mt-0.5 flex-shrink-0" size={18} /> : <AlertTriangle className="text-red-400 mt-0.5 flex-shrink-0" size={18} />}
                 <div className="flex-1">
-                    <h3 className="text-sm font-semibold text-red-200">Backend Disconnected</h3>
-                    <p className="text-xs text-red-300 mt-0.5">{backendError}</p>
+                    <h3 className="text-sm font-semibold text-red-200">{backendError ? "Backend Disconnected" : "AI Error"}</h3>
+                    <p className="text-xs text-red-300 mt-0.5">{backendError || aiError}</p>
                 </div>
                 <button 
-                    onClick={() => window.location.reload()}
+                    onClick={() => {
+                        if (backendError) window.location.reload();
+                        else setAiError(null);
+                    }}
                     className="text-xs bg-red-800 hover:bg-red-700 text-white px-3 py-1.5 rounded transition-colors"
                 >
-                    Retry
+                    {backendError ? "Retry" : "Dismiss"}
                 </button>
             </div>
         )}

@@ -28,3 +28,5 @@ sessions
 *.sw?
 package-lock.json
 
+.env
+.env.example
