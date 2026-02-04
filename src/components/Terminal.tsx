@@ -16,13 +16,17 @@ export const Terminal: React.FC<TerminalProps> = ({ socket, fontSize }) => {
     const fitAddonRef = useRef<FitAddon | null>(null);
 
     useEffect(() => {
-        if (xtermRef.current && fitAddonRef.current) {
+        if (xtermRef.current && fitAddonRef.current && terminalRef.current?.clientWidth) {
             xtermRef.current.options.fontSize = fontSize;
-            fitAddonRef.current.fit();
-            // Emit resize event to backend because font size change affects dimensions
-            const dims = fitAddonRef.current.proposeDimensions();
-            if (dims) {
-                socket.emit('ssh:resize', { cols: dims.cols, rows: dims.rows });
+            try {
+                fitAddonRef.current.fit();
+                // Emit resize event to backend because font size change affects dimensions
+                const dims = fitAddonRef.current.proposeDimensions();
+                if (dims) {
+                    socket.emit('ssh:resize', { cols: dims.cols, rows: dims.rows });
+                }
+            } catch (e) {
+                console.warn("Terminal resize failed (font change):", e);
             }
         }
     }, [fontSize, socket]);
@@ -47,8 +51,8 @@ export const Terminal: React.FC<TerminalProps> = ({ socket, fontSize }) => {
 
         term.loadAddon(fitAddon);
         term.loadAddon(webLinksAddon);
-        term.open(terminalRef.current);
-        fitAddon.fit();
+        // Deferred open
+        // term.open(terminalRef.current);
 
         xtermRef.current = term;
         fitAddonRef.current = fitAddon;
@@ -83,25 +87,45 @@ export const Terminal: React.FC<TerminalProps> = ({ socket, fontSize }) => {
 
         // Handle Resize
         const handleResize = () => {
-            if (fitAddonRef.current) {
-                fitAddonRef.current.fit();
-                const dims = fitAddonRef.current.proposeDimensions();
-                if (dims && xtermRef.current) {
-                     socket.emit('ssh:resize', { cols: dims.cols, rows: dims.rows });
+            if (fitAddonRef.current && terminalRef.current?.clientWidth && xtermRef.current?.element) {
+                try {
+                    fitAddonRef.current.fit();
+                    const dims = fitAddonRef.current.proposeDimensions();
+                    if (dims && xtermRef.current) {
+                        socket.emit('ssh:resize', { cols: dims.cols, rows: dims.rows });
+                    }
+                } catch (e) {
+                    console.warn("Resize failed:", e);
                 }
             }
+        };
+
+        const attemptOpen = () => {
+             if (terminalRef.current && terminalRef.current.clientWidth > 0 && !term.element) {
+                 term.open(terminalRef.current);
+                 try {
+                     fitAddon.fit();
+                 } catch (e) { console.warn("Initial fit failed", e); }
+             }
         };
 
         window.addEventListener('resize', handleResize);
         
         // ResizeObserver to detect container size changes (e.g. when input area expands)
         const resizeObserver = new ResizeObserver(() => {
-            handleResize();
+            if (!term.element) {
+                attemptOpen();
+            } else {
+                handleResize();
+            }
         });
         resizeObserver.observe(terminalRef.current);
 
         // Initial resize after a short delay to ensure container is ready
-        setTimeout(handleResize, 100);
+        setTimeout(() => {
+            attemptOpen();
+            if (term.element) handleResize();
+        }, 100);
 
         return () => {
             socket.off('ssh:data', onData);
