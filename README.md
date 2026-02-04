@@ -30,15 +30,16 @@
 ### 🐳 Docker (Recommended)
 
 1.  **Production Deployment:**
-    Use the provided `docker-compose.prod.yml` to run the application in production mode.
+    Use the provided `docker-compose.yml` to run the application in production mode.
     ```bash
-    GEMINI_API_KEY=your_key docker compose -f docker-compose.prod.yml up -d
+    GEMINI_API_KEY=your_key docker compose up -d
     ```
     The app will be available at `http://your-vps-ip:3000`.
 
 2.  **Local Development:**
+    Use `docker-compose.dev.yml` for local development with hot-reloading.
     ```bash
-    GEMINI_API_KEY=your_key docker compose up
+    GEMINI_API_KEY=your_key docker compose -f docker-compose.dev.yml up
     ```
 
 ### 🛠 Manual Installation

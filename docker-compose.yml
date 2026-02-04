@@ -1,17 +1,10 @@
 services:
   app:
-    build:
-      context: .
-      target: development
-    command: npm run dev-all
+    image: ghcr.io/adminvpshub/ais-terminal:latest
     ports:
-      - "3000:3000"
-      - "3001:3001"
-    volumes:
-      - .:/app
-      - /app/node_modules
+      - "3000:3001"
     environment:
-      - NODE_ENV=development
+      - NODE_ENV=production
+      - PORT=3001
       - GEMINI_API_KEY=${GEMINI_API_KEY}
-    stdin_open: true
-    tty: true
+    restart: always

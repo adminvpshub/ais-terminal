@@ -58,8 +58,8 @@ jobs:
             # Login to GHCR on VPS (Requires a PAT with 'read:packages' scope)
             echo "${{ secrets.GH_PAT }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-            # Create or update docker-compose.prod.yml
-            sed 's/^            //' <<'EOF' > docker-compose.prod.yml
+            # Create or update docker-compose.yml
+            sed 's/^            //' <<'EOF' > docker-compose.yml
             services:
               app:
                 image: ghcr.io/adminvpshub/ais-terminal:latest
@@ -73,5 +73,5 @@ jobs:
             EOF
 
             # Pull and restart
-            docker compose -f docker-compose.prod.yml pull
-            docker compose -f docker-compose.prod.yml up -d
+            docker compose pull
+            docker compose up -d
