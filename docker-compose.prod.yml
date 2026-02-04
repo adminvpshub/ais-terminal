@@ -3,8 +3,8 @@ services:
     image: ghcr.io/adminvpshub/ais-terminal:latest
     ports:
       - "3000:3001"
+    env_file: .env
     environment:
       - NODE_ENV=production
       - PORT=3001
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
     restart: always
