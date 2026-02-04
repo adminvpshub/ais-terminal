@@ -59,18 +59,18 @@ jobs:
             echo "${{ secrets.GH_PAT }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
             # Create or update docker-compose.prod.yml
-            cat <<'EOF' > docker-compose.prod.yml
-services:
-  app:
-    image: ghcr.io/adminvpshub/ais-terminal:latest
-    ports:
-      - "3000:3001"
-    environment:
-      - NODE_ENV=production
-      - PORT=3001
-      - GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
-    restart: always
-EOF
+            sed 's/^            //' <<'EOF' > docker-compose.prod.yml
+            services:
+              app:
+                image: ghcr.io/adminvpshub/ais-terminal:latest
+                ports:
+                  - "3000:3001"
+                environment:
+                  - NODE_ENV=production
+                  - PORT=3001
+                  - GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
+                restart: always
+            EOF
 
             # Pull and restart
             docker compose -f docker-compose.prod.yml pull
