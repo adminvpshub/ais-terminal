@@ -41,8 +41,6 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          build-args: |
-            GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
 
       - name: Deploy to VPS via SSH
         uses: appleboy/ssh-action@master
@@ -58,6 +56,9 @@ jobs:
             # Login to GHCR on VPS (Requires a PAT with 'read:packages' scope)
             echo "${{ secrets.GH_PAT }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
+            # Create or update .env file
+            echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" > .env
+
             # Create or update docker-compose.yml
             sed 's/^            //' <<'EOF' > docker-compose.yml
             services:
@@ -65,10 +66,11 @@ jobs:
                 image: ghcr.io/adminvpshub/ais-terminal:latest
                 ports:
                   - "3000:3001"
+                volumes:
+                  - ./.env:/app/.env
                 environment:
                   - NODE_ENV=production
                   - PORT=3001
-                  - GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
                 restart: always
             EOF
 
