@@ -104,6 +104,7 @@ For a detailed example of diagnosing and fixing these issues, please refer to [s
 
 ## 🔒 Security
 
+*   **HTTPS Requirement**: This application uses the **Web Crypto API** for secure PIN hashing and encryption. This API is **only available in Secure Contexts** (HTTPS or localhost). If you are deploying to a public server, **you must serve the application over HTTPS**. Accessing it via HTTP will cause security setup failures.
 *   **Master PIN**: On first run, you will be prompted to set a 6-digit Master PIN. This PIN is used to encrypt all your SSH private keys and passphrases.
 *   **Encryption**: Keys are stored in `ssh_profiles.json` encrypted with AES-256-GCM derived from your PIN.
 *   **Privacy**: Your PIN is never stored in plain text. Only a salted hash is saved in `security.json` for verification.
