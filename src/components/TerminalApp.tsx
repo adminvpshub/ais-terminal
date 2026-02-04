@@ -8,15 +8,17 @@ import { SuggestionModal } from './SuggestionModal';
 import { SSHProfile, TerminalEntry, CommandGenerationResult, ConnectionStatus, CommandStep, CommandStatus, CommandFix } from '../types';
 import { generateLinuxCommand, generateCommandFix } from '../services/geminiService';
 import { socket, connectSocket } from '../services/sshService';
+import { encrypt, decrypt, isEncrypted } from '../services/browserSecurity';
 import { SAMPLE_PROMPTS } from '../constants';
 import { Send, Play, Cpu, AlertTriangle, Command, Link, Keyboard, ServerOff, Sparkles, Terminal as TerminalIcon, Pause, RefreshCw, XCircle, SkipForward, Type, Folder } from 'lucide-react';
 import { FileManagerPanel } from './FileManager/FileManagerPanel';
 
-const API_URL = 'http://localhost:3001';
-
 const TerminalApp: React.FC = () => {
   // --- State ---
-  const [profiles, setProfiles] = useState<SSHProfile[]>([]);
+  const [profiles, setProfiles] = useState<SSHProfile[]>(() => {
+    const saved = localStorage.getItem('ssh_profiles');
+    return saved ? JSON.parse(saved) : [];
+  });
   const [activeProfileId, setActiveProfileId] = useState<string | null>(null); // "Selected" profile in sidebar
   const [connectedProfileId, setConnectedProfileId] = useState<string | null>(null); // Actually "Connected" profile
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>(ConnectionStatus.Disconnected);
@@ -46,7 +48,7 @@ const TerminalApp: React.FC = () => {
   const [backendError, setBackendError] = useState<string | null>(null);
 
   // Auth State
-  const [isPinSetup, setIsPinSetup] = useState<boolean>(true); // Assume true initially to avoid flash
+  const [isPinSetup, setIsPinSetup] = useState<boolean>(() => !!localStorage.getItem('master_pin_hash'));
   const [showSetupModal, setShowSetupModal] = useState(false);
   const [showPinEntryModal, setShowPinEntryModal] = useState(false);
   const [cachedPin, setCachedPin] = useState<string | null>(null);
@@ -63,25 +65,17 @@ const TerminalApp: React.FC = () => {
 
   // --- Effects ---
   useEffect(() => {
-    // Check Auth Status
-    fetch(`${API_URL}/auth/status`)
-        .then(res => res.json())
-        .then(data => {
-            setIsPinSetup(data.isSetup);
-            if (!data.isSetup) {
-                setShowSetupModal(true);
-            }
-        })
-        .catch(err => console.error("Auth check failed", err));
+    // Check Auth Status locally
+    const pinHash = localStorage.getItem('master_pin_hash');
+    if (!pinHash) {
+      setShowSetupModal(true);
+    }
 
     // Load font size
     const savedFontSize = localStorage.getItem('terminal_font_size');
     if (savedFontSize) {
         setFontSize(parseInt(savedFontSize, 10));
     }
-
-    // Load profiles from backend
-    loadProfiles();
 
     // Initialize Socket Connection
     connectSocket();
@@ -90,34 +84,6 @@ const TerminalApp: React.FC = () => {
       // Optional: disconnectSocket() if you want to cleanup on unmount
     };
   }, []);
-
-  const loadProfiles = () => {
-    fetch(`${API_URL}/profiles`)
-      .then(res => {
-        if (!res.ok) throw new Error(`Server returned ${res.status}`);
-        return res.json();
-      })
-      .then(data => {
-        if (Array.isArray(data)) {
-          // Deduplicate profiles by ID, keeping the latest one
-          const seen = new Set();
-          const uniqueProfiles = [];
-          for (let i = data.length - 1; i >= 0; i--) {
-              const p = data[i];
-              if (!seen.has(p.id)) {
-                  seen.add(p.id);
-                  uniqueProfiles.unshift(p);
-              }
-          }
-          setProfiles(uniqueProfiles);
-          setBackendError(null);
-        }
-      })
-      .catch(err => {
-        console.error("Failed to load profiles:", err);
-        setBackendError("Could not connect to backend server. Please ensure 'node server.js' is running on port 3001.");
-      });
-  };
 
   // Save font size
   useEffect(() => {
@@ -398,13 +364,39 @@ const TerminalApp: React.FC = () => {
 
   const performSave = async (profilesToSave: SSHProfile[], pin: string) => {
       try {
-        const res = await fetch(`${API_URL}/profiles`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ profiles: profilesToSave, pin })
-        });
-        if (!res.ok) throw new Error("Failed to save");
-        setProfiles(profilesToSave);
+        // We actually don't NEED the pin here anymore for the backend,
+        // but we might need it if we wanted to re-encrypt something.
+        // For now, the profiles are already encrypted when they reach here
+        // because ConnectionManager calls handleSaveProfile with what's in the form.
+        // Wait, ConnectionManager sends PLAIN private keys if it's a new profile.
+        // So we MUST encrypt them here before saving to localStorage.
+
+        const encryptedProfiles = await Promise.all(profilesToSave.map(async p => {
+            // Only encrypt if it's NOT already encrypted (i.e. if it's a string from the form)
+            // But ConnectionManager ALWAYS sends a string for new/edited keys.
+            // If it's an existing key that wasn't touched, ConnectionManager sends it as is.
+            // Actually ConnectionManager's privateKey state is initialized to '' for edits.
+
+            // Let's check if it's a raw key or encrypted
+            let finalKey = p.privateKey;
+            if (typeof p.privateKey === 'string' && p.privateKey.length > 0 && !isEncrypted(p.privateKey)) {
+                finalKey = await encrypt(p.privateKey, pin) || p.privateKey;
+            }
+
+            let finalPass = p.passphrase;
+            if (typeof p.passphrase === 'string' && p.passphrase.length > 0 && !isEncrypted(p.passphrase)) {
+                finalPass = await encrypt(p.passphrase, pin) || p.passphrase;
+            }
+
+            return {
+                ...p,
+                privateKey: finalKey,
+                passphrase: finalPass
+            };
+        }));
+
+        localStorage.setItem('ssh_profiles', JSON.stringify(encryptedProfiles));
+        setProfiles(encryptedProfiles);
         setBackendError(null);
         setPendingSaveProfiles(null);
       } catch (err) {
@@ -445,7 +437,7 @@ const TerminalApp: React.FC = () => {
 
   const getActiveProfile = () => profiles.find(p => p.id === activeProfileId);
 
-  const handleConnect = () => {
+  const handleConnect = async () => {
     const profile = getSelectedProfile();
     if (!profile) return;
 
@@ -456,26 +448,36 @@ const TerminalApp: React.FC = () => {
         return;
     }
 
-    triggerConnection(profile.id, cachedPin);
+    await triggerConnection(profile.id, cachedPin);
   };
 
-  const triggerConnection = (profileId: string, pin: string) => {
-      // If we are already connected to another profile, this new connection request
-      // will implicitly disconnect the old one on the backend.
-      // Frontend state needs to update to reflect we are connecting to NEW profile.
-      setConnectionStatus(ConnectionStatus.Connecting);
-      setConnectedProfileId(profileId); // Set intent to connect to this profile
-      socket.emit('ssh:connect', {
-          profileId,
-          pin
-      });
+  const triggerConnection = async (profileId: string, pin: string) => {
+      const profile = profiles.find(p => p.id === profileId);
+      if (!profile) return;
+
+      try {
+          const privateKey = await decrypt(profile.privateKey as string, pin);
+          const passphrase = profile.passphrase ? await decrypt(profile.passphrase as string, pin) : undefined;
+
+          setConnectionStatus(ConnectionStatus.Connecting);
+          setConnectedProfileId(profileId);
+
+          socket.emit('ssh:connect', {
+              host: profile.host,
+              username: profile.username,
+              privateKey,
+              passphrase
+          });
+      } catch (e) {
+          console.error("Failed to decrypt key for connection", e);
+          setBackendError("Failed to decrypt SSH key. Is your PIN correct?");
+          setConnectionStatus(ConnectionStatus.Error);
+      }
   };
 
   const handlePinSetupSuccess = () => {
       setShowSetupModal(false);
       setIsPinSetup(true);
-      // Reload profiles to ensure we have the encrypted versions (though frontend just sees masks)
-      loadProfiles();
   };
 
   const handlePinEntrySuccess = (pin: string) => {

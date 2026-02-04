@@ -1,12 +1,30 @@
-import { GoogleGenAI, Type } from "@google/genai";
 import { CommandGenerationResult, LinuxDistro, CommandStep, CommandStatus, CommandFix } from "../types";
 
-// NOTE: In a production app, the key would be securely managed.
-// For this frontend-only demo, we assume process.env.API_KEY is available.
-// If not available (e.g. running in browser without env injection), we fallback to a placeholder or user input.
-// However, since we are in a sandbox, we might need to handle the case where it's missing gracefully to prevent app crash on load.
-const apiKey = process.env.API_KEY || 'dummy_key_for_dev';
-const ai = new GoogleGenAI({ apiKey });
+const API_BASE = import.meta.env.PROD ? '' : 'http://localhost:3001';
+
+async function callAIGenerate(prompt: string, schema: any) {
+    const response = await fetch(`${API_BASE}/api/ai/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            prompt,
+            config: {
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: schema
+                }
+            }
+        })
+    });
+
+    if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || "AI call failed");
+    }
+
+    const data = await response.json();
+    return data.text;
+}
 
 export const generateLinuxCommand = async (
   naturalLanguage: string,
@@ -29,33 +47,26 @@ export const generateLinuxCommand = async (
       Return a JSON object with a "steps" array.
     `;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-2.0-flash",
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            steps: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  command: { type: Type.STRING, description: "The actual Linux shell command" },
-                  explanation: { type: Type.STRING, description: "Brief explanation of the command" },
-                  dangerous: { type: Type.BOOLEAN, description: "True if command deletes data or modifies system core" },
-                },
-                required: ["command", "explanation", "dangerous"],
+    const schema = {
+        type: "object",
+        properties: {
+          steps: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                command: { type: "string", description: "The actual Linux shell command" },
+                explanation: { type: "string", description: "Brief explanation of the command" },
+                dangerous: { type: "boolean", description: "True if command deletes data or modifies system core" },
               },
+              required: ["command", "explanation", "dangerous"],
             },
           },
-          required: ["steps"],
         },
-      },
-    });
+        required: ["steps"],
+    };
 
-    const text = response.text;
+    const text = await callAIGenerate(prompt, schema);
     if (!text) throw new Error("No response from AI");
     
     const parsed = JSON.parse(text);
@@ -98,25 +109,18 @@ export const generateCommandFix = async (
       If the error implies a missing dependency or prerequisite, provide that command instead (or chained).
     `;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-2.0-flash",
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              command: { type: Type.STRING, description: "The corrected Linux shell command" },
-              explanation: { type: Type.STRING, description: "Why this fix works" },
-              dangerous: { type: Type.BOOLEAN, description: "True if dangerous" },
-              classification: { type: Type.STRING, enum: ["error", "suggestion"], description: "Classify as 'error' or 'suggestion'" }
-            },
-            required: ["command", "explanation", "dangerous", "classification"],
+    const schema = {
+        type: "object",
+        properties: {
+            command: { type: "string", description: "The corrected Linux shell command" },
+            explanation: { type: "string", description: "Why this fix works" },
+            dangerous: { type: "boolean", description: "True if dangerous" },
+            classification: { type: "string", enum: ["error", "suggestion"], description: "Classify as 'error' or 'suggestion'" }
         },
-      },
-    });
+        required: ["command", "explanation", "dangerous", "classification"],
+    };
 
-    const text = response.text;
+    const text = await callAIGenerate(prompt, schema);
     if (!text) throw new Error("No response from AI");
 
     const parsed = JSON.parse(text);
