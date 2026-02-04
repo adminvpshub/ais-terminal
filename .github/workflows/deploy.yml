@@ -58,6 +58,9 @@ jobs:
             # Login to GHCR on VPS (Requires a PAT with 'read:packages' scope)
             echo "${{ secrets.GH_PAT }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
+            # Create .env file
+            echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" > .env
+
             # Create or update docker-compose.prod.yml
             sed 's/^            //' <<'EOF' > docker-compose.prod.yml
             services:
@@ -65,10 +68,10 @@ jobs:
                 image: ghcr.io/adminvpshub/ais-terminal:latest
                 ports:
                   - "3000:3001"
+                env_file: .env
                 environment:
                   - NODE_ENV=production
                   - PORT=3001
-                  - GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
                 restart: always
             EOF
 
