@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Lock, Check, AlertCircle } from 'lucide-react';
 import { Button } from './Button';
+import { hashPin, verifyPin } from '../services/browserSecurity';
 
 interface SetupPinModalProps {
     onSuccess: () => void;
@@ -28,20 +29,11 @@ export const SetupPinModal: React.FC<SetupPinModalProps> = ({ onSuccess }) => {
 
         setLoading(true);
         try {
-            const res = await fetch('http://localhost:3001/auth/setup', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ pin })
-            });
-            const data = await res.json();
-
-            if (res.ok) {
-                onSuccess();
-            } else {
-                setError(data.error || 'Setup failed');
-            }
+            const hash = await hashPin(pin);
+            localStorage.setItem('master_pin_hash', hash);
+            onSuccess();
         } catch (err) {
-            setError("Failed to connect to server.");
+            setError("Failed to setup security.");
         } finally {
             setLoading(false);
         }
@@ -124,14 +116,17 @@ export const PinEntryModal: React.FC<PinEntryModalProps> = ({ onSuccess, onCance
         setError(null);
 
         try {
-            const res = await fetch('http://localhost:3001/auth/verify', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ pin })
-            });
-            const data = await res.json();
+            const storedHash = localStorage.getItem('master_pin_hash');
 
-            if (res.ok && data.valid) {
+            if (!storedHash) {
+                setError("No PIN setup found.");
+                setLoading(false);
+                return;
+            }
+
+            const isValid = await verifyPin(pin, storedHash);
+
+            if (isValid) {
                 onSuccess(pin);
             } else {
                 setError("Incorrect PIN.");

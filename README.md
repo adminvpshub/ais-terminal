@@ -25,7 +25,23 @@
 - **AI**: Google Gemini 2.0 Flash (via `@google/genai`)
 - **Security**: PBKDF2 Hashing, AES-256-GCM Encryption
 
-## 📦 Installation
+## 📦 Deployment & Installation
+
+### 🐳 Docker (Recommended)
+
+1.  **Production Deployment:**
+    Use the provided `docker-compose.prod.yml` to run the application in production mode.
+    ```bash
+    GEMINI_API_KEY=your_key docker compose -f docker-compose.prod.yml up -d
+    ```
+    The app will be available at `http://your-vps-ip:3000`.
+
+2.  **Local Development:**
+    ```bash
+    GEMINI_API_KEY=your_key docker compose up
+    ```
+
+### 🛠 Manual Installation
 
 1.  **Clone the repository:**
     ```bash
@@ -45,18 +61,22 @@
     ```
 
 4.  **Start the Application:**
-    This command starts both the backend server and the frontend development server concurrently.
     ```bash
     npm start
-    ```
-    *Or separately:*
-    ```bash
-    node server.js
-    npm run dev
     ```
 
 5.  **Access:**
     Open `http://localhost:3000` in your browser.
+
+## 🤖 GitHub Actions CI/CD
+
+To automate deployment to your VPS, set up the following GitHub Secrets:
+
+- `GEMINI_API_KEY`: Your Google Gemini API Key.
+- `VPS_HOST`: Your VPS IP address or domain.
+- `VPS_USER`: SSH username (e.g., `root`).
+- `VPS_SSH_KEY`: Your private SSH key for the VPS.
+- `GH_PAT`: A GitHub Personal Access Token with `read:packages` scope (to pull images on the VPS).
 
 ## 🔑 SSH Configuration Guide
 
