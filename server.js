@@ -23,7 +23,7 @@ const io = new Server(httpServer, {
 const PORT = process.env.PORT || 3001;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
-const genAI = GEMINI_API_KEY ? new GoogleGenAI(GEMINI_API_KEY) : null;
+const genAI = GEMINI_API_KEY ? new GoogleGenAI({ apiKey: GEMINI_API_KEY }) : null;
 
 app.use(cors());
 app.use(express.json());
@@ -34,9 +34,20 @@ app.post('/api/ai/generate', async (req, res) => {
     if (!genAI) return res.status(500).json({ error: "Gemini API key not configured on server" });
     const { prompt, config } = req.body;
     try {
-        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-        const result = await model.generateContent({ contents: prompt, ...config });
-        res.json({ text: result.response.text() });
+        const result = await genAI.models.generateContent({
+            model: "gemini-2.0-flash",
+            contents: prompt,
+            config: config
+        });
+
+        const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+
+        if (text) {
+            res.json({ text });
+        } else {
+            console.error("Unexpected AI Response structure:", JSON.stringify(result, null, 2));
+            res.status(500).json({ error: "Failed to generate text from AI response" });
+        }
     } catch (error) {
         console.error("AI Generation Error:", error);
         res.status(500).json({ error: error.message });
