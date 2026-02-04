@@ -47,7 +47,7 @@ if (process.env.NODE_ENV === 'production') {
   app.use(express.static(path.join(__dirname, 'dist')));
 
   // Handle React routing, return all requests to React app
-  app.get('*', (req, res, next) => {
+  app.get('(.*)', (req, res, next) => {
       // If it's an API route, skip
       if (req.url.startsWith('/socket.io')) return next();
       res.sendFile(path.join(__dirname, 'dist', 'index.html'));

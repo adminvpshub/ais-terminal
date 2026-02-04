@@ -1,6 +1,6 @@
 services:
   app:
-    build: .
+    image: ghcr.io/adminvpshub/ais-terminal:latest
     ports:
       - "3000:3001"
     environment:
