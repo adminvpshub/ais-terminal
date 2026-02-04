@@ -67,7 +67,7 @@ io.on('connection', (socket) => {
     const { host, username, privateKey, passphrase } = payload;
 
     if (!host || !username || !privateKey) {
-        socket.emit('ssh:error', 'Missing connection details');
+        socket.emit('ssh:error', 'Missing connection details (host, username, or privateKey)');
         return;
     }
 

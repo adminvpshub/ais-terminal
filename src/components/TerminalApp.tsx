@@ -5,6 +5,8 @@ import { Button } from './Button';
 import { TaskSidebar } from './TaskSidebar';
 import { SetupPinModal, PinEntryModal } from './AuthModals';
 import { SuggestionModal } from './SuggestionModal';
+import { ApiKeyModal } from './ApiKeyModal';
+import { AlertModal } from './AlertModal';
 import { SSHProfile, TerminalEntry, CommandGenerationResult, ConnectionStatus, CommandStep, CommandStatus, CommandFix } from '../types';
 import { generateLinuxCommand, generateCommandFix } from '../services/geminiService';
 import { socket, connectSocket } from '../services/sshService';
@@ -46,6 +48,10 @@ const TerminalApp: React.FC = () => {
 
   const [isThinking, setIsThinking] = useState(false);
   const [backendError, setBackendError] = useState<string | null>(null);
+  const [showApiKeyModal, setShowApiKeyModal] = useState(false);
+
+  // Connection Error Modal State
+  const [connectionError, setConnectionError] = useState<string | null>(null);
 
   // Auth State
   const [isPinSetup, setIsPinSetup] = useState<boolean>(() => !!localStorage.getItem('master_pin_hash'));
@@ -141,6 +147,9 @@ const TerminalApp: React.FC = () => {
     };
 
     const onError = (msg: string) => {
+      // Always capture the error message for the modal
+      setConnectionError(msg);
+
       if (msg.includes('Connection')) {
         setConnectionStatus(ConnectionStatus.Error);
       }
@@ -195,9 +204,6 @@ const TerminalApp: React.FC = () => {
     };
   }, [activeProfileId, profiles, backendError, executionState, detectedDistro, connectionStatus]);
 
-  // Removed auto-disconnect useEffect.
-  // Selecting a different profile (activeProfileId) should NOT disconnect the current session.
-
   // Sync Queue to Backend on Change (Pause/Stop logic)
   useEffect(() => {
     if (connectionStatus === ConnectionStatus.Connected && commandQueue.length > 0) {
@@ -224,7 +230,6 @@ const TerminalApp: React.FC = () => {
        // If we are in "Run All" mode (implied if not paused), run next
        if (runMode === 'single') {
            setExecutionState('idle');
-           addLog('info', 'Step completed.');
            return;
        }
 
@@ -246,10 +251,6 @@ const TerminalApp: React.FC = () => {
        }, 50);
 
     } else {
-       // Error or Empty output
-       // Note: "Empty output" with exit code 0 is success (above block).
-       // "Empty output" with exit code != 0 falls here.
-
        updateStepStatus(activeStep.id, CommandStatus.Error);
        setExecutionState('error');
 
@@ -262,8 +263,12 @@ const TerminalApp: React.FC = () => {
              // Use the accumulated output 'currentOutput'
              const fix = await generateCommandFix(activeStep.command, currentOutput, detectedDistro || 'Linux');
              setSuggestedFix(fix);
-           } catch (e) {
-             console.error('Failed to generate fix suggestion', e);
+           } catch (e: any) {
+             if (e.message === 'INVALID_API_KEY') {
+                setShowApiKeyModal(true);
+             } else {
+                console.error('Failed to generate fix suggestion', e);
+             }
            } finally {
              setIsThinking(false);
            }
@@ -284,7 +289,12 @@ const TerminalApp: React.FC = () => {
   };
 
   const updateStepStatus = (id: string, status: CommandStatus) => {
-    setCommandQueue(prev => prev.map(s => s.id === id ? { ...s, status } : s));
+    setCommandQueue(prev => prev.map(s => {
+        if (s.id === id) {
+            return { ...s, status };
+        }
+        return s;
+    }));
   };
 
   const handleStartQueue = () => {
@@ -321,40 +331,11 @@ const TerminalApp: React.FC = () => {
 
   // --- Handlers ---
   
-  const saveProfilesToBackend = async (newProfiles: SSHProfile[]) => {
-    // Determine if we need PIN to save.
-    // If we have cachedPin, use it.
-    // If not, we might need to ask?
-    // Ideally, when user adds/edits profile, we should ask for PIN then if not cached.
-    // But ConnectionManager is handling the UI.
-    // Let's assume for this MVP, if they don't have a cached PIN, we can't save encrypted data properly *if* we need to re-encrypt.
-    // Actually, backend requires PIN to encrypt new keys.
-    // If we are just deleting, maybe we don't need PIN? But backend endpoint checks for it.
-
-    // We need to trigger PIN modal if no cached PIN.
-    // But this function is called from child component.
-    // We'll wrap the logic.
-  };
-
   // Refactored Profile Handling with PIN Support
   const handleProfileUpdate = async (updatedProfiles: SSHProfile[]) => {
       if (cachedPin) {
           await performSave(updatedProfiles, cachedPin);
       } else {
-          // Trigger PIN entry, then save
-          // We need to store the intended action
-          // Ideally we would pass a callback to the modal, but using state is easier for now.
-          // BUT, `updatedProfiles` is transient.
-          // Let's just prompt user in the UI before calling this?
-          // No, let's show modal here.
-          // For simplicity in this turn, we'll just fail if not logged in?
-          // No, requirement is to prompt.
-          // Let's use a temporary promise mechanism or just state.
-          // Since we can't await the modal easily in this flow without bigger refactor,
-          // let's force the user to "Connect" (unlock) before editing?
-          // Or just show the modal and retry inside the modal's success handler?
-          // Let's go with: Show modal, and pass the data to be saved to the modal or a pending state.
-          // Simpler: Just set a "pendingSave" state.
           setPendingSaveProfiles(updatedProfiles);
           setShowPinEntryModal(true);
       }
@@ -364,20 +345,7 @@ const TerminalApp: React.FC = () => {
 
   const performSave = async (profilesToSave: SSHProfile[], pin: string) => {
       try {
-        // We actually don't NEED the pin here anymore for the backend,
-        // but we might need it if we wanted to re-encrypt something.
-        // For now, the profiles are already encrypted when they reach here
-        // because ConnectionManager calls handleSaveProfile with what's in the form.
-        // Wait, ConnectionManager sends PLAIN private keys if it's a new profile.
-        // So we MUST encrypt them here before saving to localStorage.
-
         const encryptedProfiles = await Promise.all(profilesToSave.map(async p => {
-            // Only encrypt if it's NOT already encrypted (i.e. if it's a string from the form)
-            // But ConnectionManager ALWAYS sends a string for new/edited keys.
-            // If it's an existing key that wasn't touched, ConnectionManager sends it as is.
-            // Actually ConnectionManager's privateKey state is initialized to '' for edits.
-
-            // Let's check if it's a raw key or encrypted
             let finalKey = p.privateKey;
             if (typeof p.privateKey === 'string' && p.privateKey.length > 0 && !isEncrypted(p.privateKey)) {
                 finalKey = await encrypt(p.privateKey, pin) || p.privateKey;
@@ -434,8 +402,6 @@ const TerminalApp: React.FC = () => {
 
   // Helper to get the profile currently selected in sidebar (for Connect action)
   const getSelectedProfile = () => profiles.find(p => p.id === activeProfileId);
-
-  const getActiveProfile = () => profiles.find(p => p.id === activeProfileId);
 
   const handleConnect = async () => {
     const profile = getSelectedProfile();
@@ -521,8 +487,12 @@ const TerminalApp: React.FC = () => {
     try {
       const result = await generateLinuxCommand(input, detectedDistro || 'Linux');
       setCommandQueue(result.steps);
-    } catch (error) {
-      console.error('Command generation failed', error);
+    } catch (error: any) {
+      if (error.message === 'INVALID_API_KEY') {
+          setShowApiKeyModal(true);
+      } else {
+          console.error('Command generation failed', error);
+      }
     } finally {
       setIsThinking(false);
     }
@@ -562,6 +532,16 @@ const TerminalApp: React.FC = () => {
     <div className="flex h-screen w-full bg-gray-900 text-gray-100 font-sans selection:bg-blue-500/30">
 
       {/* Auth Modals */}
+      {showApiKeyModal && (
+        <ApiKeyModal onClose={() => setShowApiKeyModal(false)} />
+      )}
+      <AlertModal
+        isOpen={!!connectionError}
+        onClose={() => setConnectionError(null)}
+        title="Connection Error"
+        message={connectionError || "An unknown error occurred."}
+        variant="error"
+      />
       {showSetupModal && (
           <SetupPinModal onSuccess={handlePinSetupSuccess} />
       )}

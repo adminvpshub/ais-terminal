@@ -1,23 +1,26 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ConnectionManager } from './components/ConnectionManager';
-import { Terminal } from './components/Terminal';
-import { Button } from './components/Button';
-import { TaskSidebar } from './components/TaskSidebar';
-import { SetupPinModal, PinEntryModal } from './components/AuthModals';
-import { SuggestionModal } from './components/SuggestionModal';
-import { ApiKeyModal } from './components/ApiKeyModal';
-import { AlertModal } from './components/AlertModal';
-import { SSHProfile, TerminalEntry, CommandGenerationResult, ConnectionStatus, CommandStep, CommandStatus, CommandFix } from './types';
-import { generateLinuxCommand, generateCommandFix } from './services/geminiService';
-import { socket, connectSocket } from './services/sshService';
-import { SAMPLE_PROMPTS } from './constants';
-import { Send, Play, Cpu, AlertTriangle, Command, Link, Keyboard, ServerOff, Sparkles, Terminal as TerminalIcon, Pause, RefreshCw, XCircle, SkipForward, Type } from 'lucide-react';
-
-const API_URL = 'http://localhost:3001';
+import { ConnectionManager } from './src/components/ConnectionManager';
+import { Terminal } from './src/components/Terminal';
+import { Button } from './src/components/Button';
+import { TaskSidebar } from './src/components/TaskSidebar';
+import { SetupPinModal, PinEntryModal } from './src/components/AuthModals';
+import { SuggestionModal } from './src/components/SuggestionModal';
+import { ApiKeyModal } from './src/components/ApiKeyModal';
+import { AlertModal } from './src/components/AlertModal';
+import { SSHProfile, TerminalEntry, CommandGenerationResult, ConnectionStatus, CommandStep, CommandStatus, CommandFix } from './src/types';
+import { generateLinuxCommand, generateCommandFix } from './src/services/geminiService';
+import { socket, connectSocket } from './src/services/sshService';
+import { encrypt, decrypt, isEncrypted } from './src/services/browserSecurity';
+import { SAMPLE_PROMPTS } from './src/constants';
+import { Send, Play, Cpu, AlertTriangle, Command, Link, Keyboard, ServerOff, Sparkles, Terminal as TerminalIcon, Pause, RefreshCw, XCircle, SkipForward, Type, Folder } from 'lucide-react';
+import { FileManagerPanel } from './src/components/FileManager/FileManagerPanel';
 
 const App: React.FC = () => {
   // --- State ---
-  const [profiles, setProfiles] = useState<SSHProfile[]>([]);
+  const [profiles, setProfiles] = useState<SSHProfile[]>(() => {
+    const saved = localStorage.getItem('ssh_profiles');
+    return saved ? JSON.parse(saved) : [];
+  });
   const [activeProfileId, setActiveProfileId] = useState<string | null>(null); // "Selected" profile in sidebar
   const [connectedProfileId, setConnectedProfileId] = useState<string | null>(null); // Actually "Connected" profile
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>(ConnectionStatus.Disconnected);
@@ -28,6 +31,9 @@ const App: React.FC = () => {
   // or simple side-logging. For now, we'll use it to accumulate data for AI context.
   const [sessionLog, setSessionLog] = useState('');
   const [input, setInput] = useState('');
+
+  // UI State
+  const [showFileManager, setShowFileManager] = useState(false);
 
   // New State for Prompts visibility
   const [showPrompts, setShowPrompts] = useState(false);
@@ -48,11 +54,9 @@ const App: React.FC = () => {
   const [connectionError, setConnectionError] = useState<string | null>(null);
 
   // Auth State
-  const [isLoadingAuth, setIsLoadingAuth] = useState(true);
-  const [isPinSetup, setIsPinSetup] = useState<boolean>(true); // Assume true initially to avoid flash
+  const [isPinSetup, setIsPinSetup] = useState<boolean>(() => !!localStorage.getItem('master_pin_hash'));
   const [showSetupModal, setShowSetupModal] = useState(false);
   const [showPinEntryModal, setShowPinEntryModal] = useState(false);
-  const [isLoginMode, setIsLoginMode] = useState(false);
   const [cachedPin, setCachedPin] = useState<string | null>(null);
   const [pendingConnectProfileId, setPendingConnectProfileId] = useState<string | null>(null);
 
@@ -67,30 +71,17 @@ const App: React.FC = () => {
 
   // --- Effects ---
   useEffect(() => {
-    // Check Auth Status
-    fetch(`${API_URL}/auth/status`)
-        .then(res => res.json())
-        .then(data => {
-            setIsPinSetup(data.isSetup);
-            if (!data.isSetup) {
-                setShowSetupModal(true);
-            } else {
-                // If setup, we force a "login"
-                setIsLoginMode(true);
-                setShowPinEntryModal(true);
-            }
-        })
-        .catch(err => console.error("Auth check failed", err))
-        .finally(() => setIsLoadingAuth(false));
+    // Check Auth Status locally
+    const pinHash = localStorage.getItem('master_pin_hash');
+    if (!pinHash) {
+      setShowSetupModal(true);
+    }
 
     // Load font size
     const savedFontSize = localStorage.getItem('terminal_font_size');
     if (savedFontSize) {
         setFontSize(parseInt(savedFontSize, 10));
     }
-
-    // Load profiles from backend
-    loadProfiles();
 
     // Initialize Socket Connection
     connectSocket();
@@ -99,34 +90,6 @@ const App: React.FC = () => {
       // Optional: disconnectSocket() if you want to cleanup on unmount
     };
   }, []);
-
-  const loadProfiles = () => {
-    fetch(`${API_URL}/profiles`)
-      .then(res => {
-        if (!res.ok) throw new Error(`Server returned ${res.status}`);
-        return res.json();
-      })
-      .then(data => {
-        if (Array.isArray(data)) {
-          // Deduplicate profiles by ID, keeping the latest one
-          const seen = new Set();
-          const uniqueProfiles = [];
-          for (let i = data.length - 1; i >= 0; i--) {
-              const p = data[i];
-              if (!seen.has(p.id)) {
-                  seen.add(p.id);
-                  uniqueProfiles.unshift(p);
-              }
-          }
-          setProfiles(uniqueProfiles);
-          setBackendError(null);
-        }
-      })
-      .catch(err => {
-        console.error("Failed to load profiles:", err);
-        setBackendError("Could not connect to backend server. Please ensure 'node server.js' is running on port 3001.");
-      });
-  };
 
   // Save font size
   useEffect(() => {
@@ -241,9 +204,6 @@ const App: React.FC = () => {
     };
   }, [activeProfileId, profiles, backendError, executionState, detectedDistro, connectionStatus]);
 
-  // Removed auto-disconnect useEffect.
-  // Selecting a different profile (activeProfileId) should NOT disconnect the current session.
-
   // Sync Queue to Backend on Change (Pause/Stop logic)
   useEffect(() => {
     if (connectionStatus === ConnectionStatus.Connected && commandQueue.length > 0) {
@@ -270,7 +230,6 @@ const App: React.FC = () => {
        // If we are in "Run All" mode (implied if not paused), run next
        if (runMode === 'single') {
            setExecutionState('idle');
-           addLog('info', 'Step completed.');
            return;
        }
 
@@ -292,10 +251,6 @@ const App: React.FC = () => {
        }, 50);
 
     } else {
-       // Error or Empty output
-       // Note: "Empty output" with exit code 0 is success (above block).
-       // "Empty output" with exit code != 0 falls here.
-
        updateStepStatus(activeStep.id, CommandStatus.Error);
        setExecutionState('error');
 
@@ -334,7 +289,12 @@ const App: React.FC = () => {
   };
 
   const updateStepStatus = (id: string, status: CommandStatus) => {
-    setCommandQueue(prev => prev.map(s => s.id === id ? { ...s, status } : s));
+    setCommandQueue(prev => prev.map(s => {
+        if (s.id === id) {
+            return { ...s, status };
+        }
+        return s;
+    }));
   };
 
   const handleStartQueue = () => {
@@ -371,40 +331,12 @@ const App: React.FC = () => {
 
   // --- Handlers ---
 
-  const saveProfilesToBackend = async (newProfiles: SSHProfile[]) => {
-    // Determine if we need PIN to save.
-    // If we have cachedPin, use it.
-    // If not, we might need to ask?
-    // Ideally, when user adds/edits profile, we should ask for PIN then if not cached.
-    // But ConnectionManager is handling the UI.
-    // Let's assume for this MVP, if they don't have a cached PIN, we can't save encrypted data properly *if* we need to re-encrypt.
-    // Actually, backend requires PIN to encrypt new keys.
-    // If we are just deleting, maybe we don't need PIN? But backend endpoint checks for it.
-
-    // We need to trigger PIN modal if no cached PIN.
-    // But this function is called from child component.
-    // We'll wrap the logic.
-  };
-
   // Refactored Profile Handling with PIN Support
   const handleProfileUpdate = async (updatedProfiles: SSHProfile[]) => {
       if (cachedPin) {
           await performSave(updatedProfiles, cachedPin);
       } else {
           // Trigger PIN entry, then save
-          // We need to store the intended action
-          // Ideally we would pass a callback to the modal, but using state is easier for now.
-          // BUT, `updatedProfiles` is transient.
-          // Let's just prompt user in the UI before calling this?
-          // No, let's show modal here.
-          // For simplicity in this turn, we'll just fail if not logged in?
-          // No, requirement is to prompt.
-          // Let's use a temporary promise mechanism or just state.
-          // Since we can't await the modal easily in this flow without bigger refactor,
-          // let's force the user to "Connect" (unlock) before editing?
-          // Or just show the modal and retry inside the modal's success handler?
-          // Let's go with: Show modal, and pass the data to be saved to the modal or a pending state.
-          // Simpler: Just set a "pendingSave" state.
           setPendingSaveProfiles(updatedProfiles);
           setShowPinEntryModal(true);
       }
@@ -414,13 +346,26 @@ const App: React.FC = () => {
 
   const performSave = async (profilesToSave: SSHProfile[], pin: string) => {
       try {
-        const res = await fetch(`${API_URL}/profiles`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ profiles: profilesToSave, pin })
-        });
-        if (!res.ok) throw new Error("Failed to save");
-        setProfiles(profilesToSave);
+        const encryptedProfiles = await Promise.all(profilesToSave.map(async p => {
+            let finalKey = p.privateKey;
+            if (typeof p.privateKey === 'string' && p.privateKey.length > 0 && !isEncrypted(p.privateKey)) {
+                finalKey = await encrypt(p.privateKey, pin) || p.privateKey;
+            }
+
+            let finalPass = p.passphrase;
+            if (typeof p.passphrase === 'string' && p.passphrase.length > 0 && !isEncrypted(p.passphrase)) {
+                finalPass = await encrypt(p.passphrase, pin) || p.passphrase;
+            }
+
+            return {
+                ...p,
+                privateKey: finalKey,
+                passphrase: finalPass
+            };
+        }));
+
+        localStorage.setItem('ssh_profiles', JSON.stringify(encryptedProfiles));
+        setProfiles(encryptedProfiles);
         setBackendError(null);
         setPendingSaveProfiles(null);
       } catch (err) {
@@ -447,20 +392,6 @@ const App: React.FC = () => {
     if (activeProfileId === id) setActiveProfileId(null);
   };
 
-  const handleFactoryReset = async () => {
-    try {
-        const res = await fetch(`${API_URL}/auth/reset`, { method: 'POST' });
-        if (!res.ok) throw new Error("Reset failed");
-
-        // Force a page reload to ensure a completely clean state
-        window.location.reload();
-
-    } catch (err) {
-        console.error("Factory reset failed", err);
-        setBackendError("Failed to reset application. Please check console.");
-    }
-  };
-
   // Returns the profile that provides context for the main area (Header, Input, AI)
   // If connected, it's the connected profile. Otherwise, it's the selected (active) profile.
   const getContextProfile = () => {
@@ -473,9 +404,7 @@ const App: React.FC = () => {
   // Helper to get the profile currently selected in sidebar (for Connect action)
   const getSelectedProfile = () => profiles.find(p => p.id === activeProfileId);
 
-  const getActiveProfile = () => profiles.find(p => p.id === activeProfileId);
-
-  const handleConnect = () => {
+  const handleConnect = async () => {
     const profile = getSelectedProfile();
     if (!profile) return;
 
@@ -486,33 +415,41 @@ const App: React.FC = () => {
         return;
     }
 
-    triggerConnection(profile.id, cachedPin);
+    await triggerConnection(profile.id, cachedPin);
   };
 
-  const triggerConnection = (profileId: string, pin: string) => {
-      // If we are already connected to another profile, this new connection request
-      // will implicitly disconnect the old one on the backend.
-      // Frontend state needs to update to reflect we are connecting to NEW profile.
-      setConnectionStatus(ConnectionStatus.Connecting);
-      setConnectedProfileId(profileId); // Set intent to connect to this profile
-      socket.emit('ssh:connect', {
-          profileId,
-          pin
-      });
+  const triggerConnection = async (profileId: string, pin: string) => {
+      const profile = profiles.find(p => p.id === profileId);
+      if (!profile) return;
+
+      try {
+          const privateKey = await decrypt(profile.privateKey as string, pin);
+          const passphrase = profile.passphrase ? await decrypt(profile.passphrase as string, pin) : undefined;
+
+          setConnectionStatus(ConnectionStatus.Connecting);
+          setConnectedProfileId(profileId);
+
+          socket.emit('ssh:connect', {
+              host: profile.host,
+              username: profile.username,
+              privateKey,
+              passphrase
+          });
+      } catch (e) {
+          console.error("Failed to decrypt key for connection", e);
+          setBackendError("Failed to decrypt SSH key. Is your PIN correct?");
+          setConnectionStatus(ConnectionStatus.Error);
+      }
   };
 
-  const handlePinSetupSuccess = (pin: string) => {
-      setCachedPin(pin);
+  const handlePinSetupSuccess = () => {
       setShowSetupModal(false);
       setIsPinSetup(true);
-      // Reload profiles to ensure we have the encrypted versions (though frontend just sees masks)
-      loadProfiles();
   };
 
   const handlePinEntrySuccess = (pin: string) => {
       setCachedPin(pin);
       setShowPinEntryModal(false);
-      setIsLoginMode(false);
 
       // Handle pending actions
       if (pendingConnectProfileId) {
@@ -617,14 +554,7 @@ const App: React.FC = () => {
                   setPendingConnectProfileId(null);
                   setPendingSaveProfiles(null);
               }}
-              canCancel={!isLoginMode}
             />
-      )}
-
-      {isLoadingAuth && (
-          <div className="fixed inset-0 z-50 bg-gray-900 flex items-center justify-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-          </div>
       )}
 
       {/* Sidebar */}
@@ -638,7 +568,6 @@ const App: React.FC = () => {
         onDeleteProfile={handleDeleteProfile}
         onConnect={handleConnect}
         onDisconnect={handleDisconnect}
-        onFactoryReset={handleFactoryReset}
       />
 
       {/* Main Content */}
@@ -652,6 +581,17 @@ const App: React.FC = () => {
              </div>
 
              <div className="flex items-center gap-4">
+                 {/* File Manager Toggle */}
+                 {isConnected && (
+                     <button
+                        onClick={() => setShowFileManager(!showFileManager)}
+                        className={`p-1.5 rounded transition-colors ${showFileManager ? 'text-blue-400 bg-blue-900/20' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800'}`}
+                        title="File Manager"
+                     >
+                         <Folder size={18} />
+                     </button>
+                 )}
+
                  {/* Font Size Selector */}
                  <div className="flex items-center gap-2">
                      <Type size={14} className="text-gray-500"/>
@@ -705,6 +645,11 @@ const App: React.FC = () => {
             <div className="flex-1 p-4 pb-4 overflow-hidden flex flex-col bg-gray-900 min-h-0">
                 <Terminal socket={socket} fontSize={fontSize} />
             </div>
+
+            {/* File Manager Panel */}
+            {showFileManager && isConnected && (
+                <FileManagerPanel onClose={() => setShowFileManager(false)} />
+            )}
 
             {/* Right Sidebar: Command Queue */}
             {commandQueue.length > 0 && (

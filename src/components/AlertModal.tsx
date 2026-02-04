@@ -1,6 +1,6 @@
 import React from 'react';
 import { AlertCircle, XCircle, Info } from 'lucide-react';
-import { Button } from '../../components/Button';
+import { Button } from './Button';
 
 interface AlertModalProps {
   isOpen: boolean;
