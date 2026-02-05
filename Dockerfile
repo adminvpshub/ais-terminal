@@ -5,7 +5,7 @@ COPY package*.json ./
 
 # Stage 2: Development / Build Dependencies
 FROM base AS development
-RUN npm install
+RUN npm ci
 COPY . .
 # We don't CMD here, we'll override in docker-compose.yml for dev
 
@@ -15,7 +15,7 @@ RUN npm run build
 
 # Stage 4: Production Runner
 FROM base AS runner
-RUN npm install --omit=dev
+RUN npm ci --omit=dev
 COPY --from=builder /app/dist ./dist
 COPY server.js ./
 

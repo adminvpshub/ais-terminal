@@ -61,7 +61,7 @@ if (process.env.NODE_ENV === 'production') {
   // Handle React routing, return all requests to React app
   app.get(/.*/, (req, res, next) => {
       // If it's an API route, skip
-      if (req.url.startsWith('/socket.io')) return next();
+      if (req.url.startsWith('/socket.io') || req.url.startsWith('/api')) return next();
       res.sendFile(path.join(__dirname, 'dist', 'index.html'));
   });
 }

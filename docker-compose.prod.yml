@@ -1,5 +1,8 @@
 services:
   app:
+    # Allow building from source (useful for manual deployment without GHCR)
+    build: .
+    # Use the GHCR image by default
     image: ghcr.io/adminvpshub/ais-terminal:latest
     ports:
       - "3000:3001"
@@ -7,4 +10,6 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3001
+      # Pass GEMINI_API_KEY from .env file OR shell environment
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
     restart: always
