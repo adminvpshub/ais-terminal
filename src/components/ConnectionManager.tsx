@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { SSHProfile, LinuxDistro, ConnectionStatus } from '../types';
 import { Button } from './Button';
-import { Server, Plus, Trash2, Download, Save, Eye, EyeOff, Plug, PanelLeftClose, PanelLeftOpen, Pencil } from 'lucide-react';
+import { Server, Plus, Trash2, Download, Save, Eye, EyeOff, Plug, PanelLeftClose, PanelLeftOpen, Pencil, Cloud } from 'lucide-react';
 
 interface ConnectionManagerProps {
   profiles: SSHProfile[];
@@ -29,6 +29,7 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showKey, setShowKey] = useState(false);
+  const [showToken, setShowToken] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   useEffect(() => {
@@ -43,6 +44,8 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
   const [username, setUsername] = useState('');
   const [privateKey, setPrivateKey] = useState('');
   const [passphrase, setPassphrase] = useState('');
+  const [useCloudflare, setUseCloudflare] = useState(false);
+  const [cloudflareToken, setCloudflareToken] = useState('');
 
   const resetForm = () => {
     setName('');
@@ -50,6 +53,8 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
     setUsername('');
     setPrivateKey('');
     setPassphrase('');
+    setUseCloudflare(false);
+    setCloudflareToken('');
     setEditingId(null);
     setIsEditing(false);
   };
@@ -61,6 +66,8 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
     setUsername(profile.username);
     setPrivateKey(''); // Always clear key field for security/simplicity. Empty = keep existing.
     setPassphrase(''); // Clear passphrase field. Empty = keep existing.
+    setUseCloudflare(profile.useCloudflare || false);
+    setCloudflareToken(profile.cloudflareToken || '');
     setIsEditing(true);
   };
 
@@ -74,6 +81,8 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
       username,
       privateKey, // If empty string, backend logic preserves existing key
       passphrase: passphrase || undefined, // If empty/undefined, backend preserves existing
+      useCloudflare,
+      cloudflareToken: useCloudflare ? cloudflareToken : undefined,
     };
     
     onSaveProfile(profileData);
@@ -168,6 +177,42 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
                 </div>
             </div>
 
+            <div>
+              <div className="flex items-center gap-2 mb-2 pt-1">
+                 <input
+                   type="checkbox"
+                   id="useCloudflare"
+                   checked={useCloudflare}
+                   onChange={(e) => setUseCloudflare(e.target.checked)}
+                   className="rounded bg-gray-900 border-gray-600 text-blue-500 focus:ring-blue-500 focus:ring-offset-gray-800"
+                 />
+                 <label htmlFor="useCloudflare" className="text-xs font-medium text-gray-300 flex items-center gap-1 cursor-pointer select-none">
+                    <Cloud size={12} className="text-orange-400" />
+                    Use Cloudflare Tunnel
+                 </label>
+              </div>
+
+              {useCloudflare && (
+                <div className="mb-2 pl-2 border-l-2 border-gray-600 py-1">
+                    <div className="flex justify-between items-center mb-1">
+                        <label className="block text-xs font-medium text-gray-400">Cloudflare Token (Optional)</label>
+                        <button onClick={() => setShowToken(!showToken)} className="text-gray-500 hover:text-gray-300" title={showToken ? "Hide Token" : "Show Token"}>
+                            {showToken ? <EyeOff size={12}/> : <Eye size={12}/>}
+                        </button>
+                    </div>
+                    <input
+                        type={showToken ? "text" : "password"}
+                        value={cloudflareToken}
+                        onChange={(e) => setCloudflareToken(e.target.value)}
+                        className="w-full bg-gray-900 border border-gray-600 rounded px-2 py-1 text-xs text-white focus:ring-1 focus:ring-blue-500 outline-none mb-1 font-mono"
+                        placeholder="ClientID:ClientSecret or Token"
+                    />
+                    <p className="text-[10px] text-gray-500 leading-tight">
+                       For Service Tokens, use format <code>ID:Secret</code>.
+                    </p>
+                </div>
+              )}
+            </div>
 
             <div>
               <div className="flex justify-between items-center mb-1">

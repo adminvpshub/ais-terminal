@@ -16,6 +16,15 @@ RUN npm run build
 # Stage 4: Production Runner
 FROM base AS runner
 RUN npm ci --omit=dev
+
+# Install cloudflared
+RUN apt-get update && apt-get install -y curl && \
+    curl -L --output cloudflared.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb && \
+    apt-get install -y ./cloudflared.deb && \
+    rm cloudflared.deb && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
 COPY --from=builder /app/dist ./dist
 COPY server.js ./
 

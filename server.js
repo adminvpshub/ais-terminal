@@ -6,6 +6,8 @@ import { Client } from 'ssh2';
 import cors from 'cors';
 import path, { dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { spawn } from 'child_process';
+import { Duplex } from 'stream';
 import { GoogleGenAI } from "@google/genai";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -75,8 +77,8 @@ io.on('connection', (socket) => {
   console.log('Client connected:', socket.id);
 
   socket.on('ssh:connect', async (payload) => {
-    // Payload is now direct: { host, username, privateKey, passphrase }
-    const { host, username, privateKey, passphrase } = payload;
+    // Payload is now direct: { host, username, privateKey, passphrase, useCloudflare, cloudflareToken }
+    const { host, username, privateKey, passphrase, useCloudflare, cloudflareToken } = payload;
 
     if (!host || !username || !privateKey) {
         socket.emit('ssh:error', 'Missing connection details');
@@ -120,9 +122,10 @@ io.on('connection', (socket) => {
             console.log(`SSH Connection ended for ${socket.id}`);
             socket.emit('ssh:status', 'disconnected');
             connections.delete(socket.id);
-        }).connect({
-            host,
-            port: 22,
+        });
+
+        // Connection Configuration
+        const connectConfig = {
             username,
             privateKey,
             passphrase,
@@ -131,7 +134,67 @@ io.on('connection', (socket) => {
             algorithms: {
                 serverHostKey: ['ssh-rsa', 'ssh-dss', 'ecdsa-sha2-nistp256', 'ssh-ed25519'],
             }
-        });
+        };
+
+        if (useCloudflare) {
+            console.log(`Using Cloudflare Tunnel for ${host}`);
+            const cmd = 'cloudflared';
+            const args = ['access', 'ssh', '--hostname', host];
+
+            const env = { ...process.env };
+
+            // Handle Token
+            if (cloudflareToken && cloudflareToken.trim()) {
+                 if (cloudflareToken.includes(':')) {
+                     const parts = cloudflareToken.split(':');
+                     const id = parts[0];
+                     const secret = parts.slice(1).join(':');
+                     env.TUNNEL_SERVICE_TOKEN_ID = id;
+                     env.TUNNEL_SERVICE_TOKEN_SECRET = secret;
+                 } else {
+                     console.warn(`[${socket.id}] Cloudflare token format invalid (expected ID:Secret). Proceeding without token.`);
+                     socket.emit('ssh:error', 'Cloudflare token must be in ClientID:ClientSecret format for Service Tokens.');
+                     return;
+                 }
+            }
+
+            const child = spawn(cmd, args, { env });
+
+            // Handle child process events
+            child.on('error', (err) => {
+                console.error('Cloudflared spawn error:', err);
+                socket.emit('ssh:error', `Cloudflared error: ${err.message}`);
+            });
+
+            child.stderr.on('data', (data) => {
+                // Log stderr for debug
+                console.log(`[cloudflared stderr] ${data}`);
+            });
+
+            child.on('close', (code) => {
+                if (code !== 0) {
+                     console.error(`cloudflared exited with code ${code}`);
+                     socket.emit('ssh:error', `Cloudflare tunnel closed (code ${code})`);
+                     conn.end();
+                }
+            });
+
+            try {
+                // Duplex.from requires Node 16.8+
+                const stream = Duplex.from({ readable: child.stdout, writable: child.stdin });
+                connectConfig.sock = stream;
+            } catch (e) {
+                console.error("Duplex.from error:", e);
+                socket.emit('ssh:error', 'Server error: Duplex stream creation failed');
+                return;
+            }
+
+        } else {
+            connectConfig.host = host;
+            connectConfig.port = 22;
+        }
+
+        conn.connect(connectConfig);
 
         function startShell(client, distro) {
             client.shell({ term: 'xterm-256color', cols: 80, rows: 24 }, (err, stream) => {
