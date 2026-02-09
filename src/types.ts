@@ -14,8 +14,6 @@ export interface SSHProfile {
   username: string;
   privateKey: string | boolean; // boolean if masked from backend
   passphrase?: string | boolean;
-  useCloudflare?: boolean;
-  cloudflareToken?: string;
   // distro field is removed as it is now auto-detected
 }
 

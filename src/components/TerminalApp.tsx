@@ -469,9 +469,7 @@ const TerminalApp: React.FC = () => {
               host: profile.host,
               username: profile.username,
               privateKey,
-              passphrase,
-              useCloudflare: profile.useCloudflare,
-              cloudflareToken: profile.cloudflareToken
+              passphrase
           });
       } catch (e) {
           console.error("Failed to decrypt key for connection", e);
