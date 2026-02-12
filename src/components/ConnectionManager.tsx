@@ -43,6 +43,7 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
   const [username, setUsername] = useState('');
   const [privateKey, setPrivateKey] = useState('');
   const [passphrase, setPassphrase] = useState('');
+  const [connectionType, setConnectionType] = useState<'direct' | 'cloudflared'>('direct');
 
   const resetForm = () => {
     setName('');
@@ -50,6 +51,7 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
     setUsername('');
     setPrivateKey('');
     setPassphrase('');
+    setConnectionType('direct');
     setEditingId(null);
     setIsEditing(false);
   };
@@ -61,6 +63,7 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
     setUsername(profile.username);
     setPrivateKey(''); // Always clear key field for security/simplicity. Empty = keep existing.
     setPassphrase(''); // Clear passphrase field. Empty = keep existing.
+    setConnectionType(profile.connectionType || 'direct');
     setIsEditing(true);
   };
 
@@ -74,6 +77,7 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
       username,
       privateKey, // If empty string, backend logic preserves existing key
       passphrase: passphrase || undefined, // If empty/undefined, backend preserves existing
+      connectionType,
     };
     
     onSaveProfile(profileData);
@@ -146,15 +150,43 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
               />
             </div>
             
+            <div>
+              <label className="block text-xs font-medium text-gray-400 mb-1">Connection Type</label>
+              <div className="flex gap-4 mb-2">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="connectionType"
+                    checked={connectionType === 'direct'}
+                    onChange={() => setConnectionType('direct')}
+                    className="accent-blue-500"
+                  />
+                  <span className="text-xs text-gray-300">Direct SSH (Static IP)</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="connectionType"
+                    checked={connectionType === 'cloudflared'}
+                    onChange={() => setConnectionType('cloudflared')}
+                    className="accent-blue-500"
+                  />
+                  <span className="text-xs text-gray-300">Cloudflare Tunnel</span>
+                </label>
+              </div>
+            </div>
+
             <div className="grid grid-cols-2 gap-2">
                 <div>
-                <label className="block text-xs font-medium text-gray-400 mb-1">Host/IP</label>
+                <label className="block text-xs font-medium text-gray-400 mb-1">
+                  {connectionType === 'cloudflared' ? 'Hostname' : 'Host/IP'}
+                </label>
                 <input 
                     type="text" 
                     value={host} 
                     onChange={(e) => setHost(e.target.value)} 
                     className="w-full bg-gray-900 border border-gray-600 rounded px-2 py-1 text-sm text-white focus:ring-1 focus:ring-blue-500 outline-none"
-                    placeholder="192.168.1.1"
+                    placeholder={connectionType === 'cloudflared' ? "tunnel.example.com" : "192.168.1.1"}
                 />
                 </div>
                 <div>

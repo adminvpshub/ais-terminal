@@ -15,6 +15,10 @@ RUN npm run build
 
 # Stage 4: Production Runner
 FROM base AS runner
+RUN apt-get update && apt-get install -y curl ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /usr/local/bin/cloudflared && \
+    chmod +x /usr/local/bin/cloudflared
+
 RUN npm ci --omit=dev
 COPY --from=builder /app/dist ./dist
 COPY server.js ./
