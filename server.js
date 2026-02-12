@@ -3,6 +3,8 @@ import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { Client } from 'ssh2';
+import { spawn } from 'child_process';
+import { Duplex } from 'stream';
 import cors from 'cors';
 import path, { dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -76,7 +78,7 @@ io.on('connection', (socket) => {
 
   socket.on('ssh:connect', async (payload) => {
     // Payload is now direct: { host, username, privateKey, passphrase }
-    const { host, username, privateKey, passphrase } = payload;
+    const { host, username, privateKey, passphrase, connectionType } = payload;
 
     if (!host || !username || !privateKey) {
         socket.emit('ssh:error', 'Missing connection details');
@@ -92,6 +94,25 @@ io.on('connection', (socket) => {
         }
 
         const conn = new Client();
+        let sock;
+
+        if (connectionType === 'cloudflared') {
+            const proxy = spawn('cloudflared', ['access', 'ssh', '--hostname', host]);
+
+            proxy.on('error', (err) => {
+                console.error('Cloudflared spawn error:', err);
+                socket.emit('ssh:error', 'Cloudflared spawn error: ' + err.message);
+            });
+
+            proxy.on('close', (code) => {
+                if (code !== 0) {
+                     console.error(`Cloudflared exited with code ${code}`);
+                }
+            });
+
+            // wrapper stream
+            sock = Duplex.from({ writable: proxy.stdin, readable: proxy.stdout });
+        }
 
         conn.on('ready', () => {
             // 1. Detect OS first
@@ -126,6 +147,7 @@ io.on('connection', (socket) => {
             username,
             privateKey,
             passphrase,
+            sock, // Use the custom stream if cloudflared
             keepaliveInterval: 10000,
             keepaliveCountMax: 3,
             algorithms: {
