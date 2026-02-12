@@ -78,7 +78,7 @@ io.on('connection', (socket) => {
 
   socket.on('ssh:connect', async (payload) => {
     // Payload is now direct: { host, username, privateKey, passphrase }
-    const { host, username, privateKey, passphrase, connectionType } = payload;
+    const { host, username, privateKey, passphrase, connectionType, cloudflaredClientId, cloudflaredClientSecret } = payload;
 
     if (!host || !username || !privateKey) {
         socket.emit('ssh:error', 'Missing connection details');
@@ -97,7 +97,16 @@ io.on('connection', (socket) => {
         let sock;
 
         if (connectionType === 'cloudflared') {
-            const proxy = spawn('cloudflared', ['access', 'ssh', '--hostname', host]);
+            const args = ['access', 'ssh', '--hostname', host];
+
+            if (cloudflaredClientId) {
+                args.push('--id', cloudflaredClientId);
+            }
+            if (cloudflaredClientSecret) {
+                args.push('--secret', cloudflaredClientSecret);
+            }
+
+            const proxy = spawn('cloudflared', args);
 
             proxy.on('error', (err) => {
                 console.error('Cloudflared spawn error:', err);
@@ -110,8 +119,26 @@ io.on('connection', (socket) => {
                 }
             });
 
-            // wrapper stream
-            sock = Duplex.from({ writable: proxy.stdin, readable: proxy.stdout });
+            // Manual Duplex stream implementation as requested
+            sock = new Duplex({
+                read(size) {
+                    // When ssh2 wants to read, read from cloudflared stdout
+                    const chunk = proxy.stdout.read(size);
+                    if (chunk) {
+                        this.push(chunk);
+                    } else {
+                        // Wait for readable
+                        proxy.stdout.once('readable', () => {
+                             const chunk = proxy.stdout.read();
+                             this.push(chunk);
+                        });
+                    }
+                },
+                write(chunk, encoding, callback) {
+                    // When ssh2 wants to write, write to cloudflared stdin
+                    proxy.stdin.write(chunk, encoding, callback);
+                }
+            });
         }
 
         conn.on('ready', () => {
@@ -152,7 +179,10 @@ io.on('connection', (socket) => {
             keepaliveCountMax: 3,
             algorithms: {
                 serverHostKey: ['ssh-rsa', 'ssh-dss', 'ecdsa-sha2-nistp256', 'ssh-ed25519'],
-            }
+            },
+            // Always skip host verification when using tunnel (or in general for this web terminal as requested)
+            // The user sample code sets this to always true.
+            hostVerifier: (hashedKey) => true
         });
 
         function startShell(client, distro) {

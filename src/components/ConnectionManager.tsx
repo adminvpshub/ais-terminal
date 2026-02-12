@@ -44,6 +44,8 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
   const [privateKey, setPrivateKey] = useState('');
   const [passphrase, setPassphrase] = useState('');
   const [connectionType, setConnectionType] = useState<'direct' | 'cloudflared'>('direct');
+  const [cloudflaredClientId, setCloudflaredClientId] = useState('');
+  const [cloudflaredClientSecret, setCloudflaredClientSecret] = useState('');
 
   const resetForm = () => {
     setName('');
@@ -52,6 +54,8 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
     setPrivateKey('');
     setPassphrase('');
     setConnectionType('direct');
+    setCloudflaredClientId('');
+    setCloudflaredClientSecret('');
     setEditingId(null);
     setIsEditing(false);
   };
@@ -64,6 +68,8 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
     setPrivateKey(''); // Always clear key field for security/simplicity. Empty = keep existing.
     setPassphrase(''); // Clear passphrase field. Empty = keep existing.
     setConnectionType(profile.connectionType || 'direct');
+    setCloudflaredClientId(profile.cloudflaredClientId || '');
+    setCloudflaredClientSecret(profile.cloudflaredClientSecret || '');
     setIsEditing(true);
   };
 
@@ -78,6 +84,8 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
       privateKey, // If empty string, backend logic preserves existing key
       passphrase: passphrase || undefined, // If empty/undefined, backend preserves existing
       connectionType,
+      cloudflaredClientId: connectionType === 'cloudflared' ? cloudflaredClientId : undefined,
+      cloudflaredClientSecret: connectionType === 'cloudflared' ? cloudflaredClientSecret : undefined,
     };
     
     onSaveProfile(profileData);
@@ -200,6 +208,30 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
                 </div>
             </div>
 
+            {connectionType === 'cloudflared' && (
+              <div className="bg-blue-900/10 p-2 rounded border border-blue-900/30 space-y-2">
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 mb-1">Service Token Client ID (Optional)</label>
+                  <input
+                    type="text"
+                    value={cloudflaredClientId}
+                    onChange={(e) => setCloudflaredClientId(e.target.value)}
+                    className="w-full bg-gray-900 border border-gray-600 rounded px-2 py-1 text-xs text-gray-300 focus:ring-1 focus:ring-blue-500 outline-none"
+                    placeholder="access-client-id"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 mb-1">Service Token Client Secret (Optional)</label>
+                  <input
+                    type="password"
+                    value={cloudflaredClientSecret}
+                    onChange={(e) => setCloudflaredClientSecret(e.target.value)}
+                    className="w-full bg-gray-900 border border-gray-600 rounded px-2 py-1 text-xs text-gray-300 focus:ring-1 focus:ring-blue-500 outline-none"
+                    placeholder="access-client-secret"
+                  />
+                </div>
+              </div>
+            )}
 
             <div>
               <div className="flex justify-between items-center mb-1">

@@ -15,6 +15,8 @@ export interface SSHProfile {
   privateKey: string | boolean; // boolean if masked from backend
   passphrase?: string | boolean;
   connectionType?: 'direct' | 'cloudflared';
+  cloudflaredClientId?: string;
+  cloudflaredClientSecret?: string;
   // distro field is removed as it is now auto-detected
 }
 
