@@ -47,6 +47,9 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
   const [cloudflaredClientId, setCloudflaredClientId] = useState('');
   const [cloudflaredClientSecret, setCloudflaredClientSecret] = useState('');
 
+  // Validation State
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
   const resetForm = () => {
     setName('');
     setHost('');
@@ -58,6 +61,7 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
     setCloudflaredClientSecret('');
     setEditingId(null);
     setIsEditing(false);
+    setErrors({});
   };
 
   const handleEdit = (profile: SSHProfile) => {
@@ -71,10 +75,57 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
     setCloudflaredClientId(profile.cloudflaredClientId || '');
     setCloudflaredClientSecret(profile.cloudflaredClientSecret || '');
     setIsEditing(true);
+    setErrors({});
+  };
+
+  const validate = () => {
+      const newErrors: Record<string, string> = {};
+
+      // Name Validation
+      if (!name.trim()) newErrors.name = "Profile Name is required";
+
+      // Host Validation
+      // IPv4
+      const ipv4Regex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+      // Simple IPv6 check (contains : and hex)
+      const isIPv6 = (val: string) => val.includes(':') && /^[0-9a-fA-F:]+$/.test(val);
+      // Hostname (RFC 1123 mostly)
+      const hostnameRegex = /^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$/;
+
+      const hostVal = host.trim();
+      if (!hostVal) {
+          newErrors.host = "Host/IP is required";
+      } else {
+          const isValid = ipv4Regex.test(hostVal) || isIPv6(hostVal) || hostnameRegex.test(hostVal);
+          if (!isValid) {
+              newErrors.host = "Invalid Host/IP or Hostname format";
+          }
+      }
+
+      // User Validation
+      if (!username.trim()) newErrors.username = "User is required";
+
+      // Key Validation
+      if (!editingId) {
+          // New Profile: Required + Format
+          if (!privateKey.trim()) {
+              newErrors.privateKey = "SSH Private Key is required";
+          } else if (!privateKey.trim().startsWith('-----BEGIN')) {
+              newErrors.privateKey = "Key must start with -----BEGIN";
+          }
+      } else {
+          // Edit Profile: Optional (empty = keep), Format if filled
+          if (privateKey.trim() && !privateKey.trim().startsWith('-----BEGIN')) {
+              newErrors.privateKey = "Key must start with -----BEGIN";
+          }
+      }
+
+      setErrors(newErrors);
+      return Object.keys(newErrors).length === 0;
   };
 
   const handleSave = () => {
-    if (!name || !host || !username) return;
+    if (!validate()) return;
     
     const profileData: SSHProfile = {
       id: editingId || crypto.randomUUID(),
@@ -152,10 +203,14 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
               <input 
                 type="text" 
                 value={name} 
-                onChange={(e) => setName(e.target.value)} 
-                className="w-full bg-gray-900 border border-gray-600 rounded px-2 py-1 text-sm text-white focus:ring-1 focus:ring-blue-500 outline-none"
+                onChange={(e) => {
+                    setName(e.target.value);
+                    if (errors.name) setErrors(prev => ({...prev, name: ''}));
+                }}
+                className={`w-full bg-gray-900 border ${errors.name ? 'border-red-500' : 'border-gray-600'} rounded px-2 py-1 text-sm text-white focus:ring-1 focus:ring-blue-500 outline-none`}
                 placeholder="Prod Server"
               />
+              {errors.name && <span className="text-red-500 text-xs mt-1 block">{errors.name}</span>}
             </div>
             
             <div>
@@ -192,19 +247,27 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
                 <input 
                     type="text" 
                     value={host} 
-                    onChange={(e) => setHost(e.target.value)} 
-                    className="w-full bg-gray-900 border border-gray-600 rounded px-2 py-1 text-sm text-white focus:ring-1 focus:ring-blue-500 outline-none"
+                    onChange={(e) => {
+                        setHost(e.target.value);
+                        if (errors.host) setErrors(prev => ({...prev, host: ''}));
+                    }}
+                    className={`w-full bg-gray-900 border ${errors.host ? 'border-red-500' : 'border-gray-600'} rounded px-2 py-1 text-sm text-white focus:ring-1 focus:ring-blue-500 outline-none`}
                     placeholder={connectionType === 'cloudflared' ? "tunnel.example.com" : "192.168.1.1"}
                 />
+                {errors.host && <span className="text-red-500 text-xs mt-1 block">{errors.host}</span>}
                 </div>
                 <div>
                 <label className="block text-xs font-medium text-gray-400 mb-1">User</label>
                 <input 
                     type="text" 
                     value={username} 
-                    onChange={(e) => setUsername(e.target.value)} 
-                    className="w-full bg-gray-900 border border-gray-600 rounded px-2 py-1 text-sm text-white focus:ring-1 focus:ring-blue-500 outline-none"
+                    onChange={(e) => {
+                        setUsername(e.target.value);
+                        if (errors.username) setErrors(prev => ({...prev, username: ''}));
+                    }}
+                    className={`w-full bg-gray-900 border ${errors.username ? 'border-red-500' : 'border-gray-600'} rounded px-2 py-1 text-sm text-white focus:ring-1 focus:ring-blue-500 outline-none`}
                 />
+                {errors.username && <span className="text-red-500 text-xs mt-1 block">{errors.username}</span>}
                 </div>
             </div>
 
@@ -242,12 +305,16 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
               </div>
               <textarea 
                 value={privateKey} 
-                onChange={(e) => setPrivateKey(e.target.value)} 
-                className={`w-full bg-gray-900 border border-gray-600 rounded px-2 py-1 text-xs text-gray-300 focus:ring-1 focus:ring-blue-500 outline-none font-mono ${showKey ? '' : 'text-security-disc'}`}
+                onChange={(e) => {
+                    setPrivateKey(e.target.value);
+                    if (errors.privateKey) setErrors(prev => ({...prev, privateKey: ''}));
+                }}
+                className={`w-full bg-gray-900 border ${errors.privateKey ? 'border-red-500' : 'border-gray-600'} rounded px-2 py-1 text-xs text-gray-300 focus:ring-1 focus:ring-blue-500 outline-none font-mono ${showKey ? '' : 'text-security-disc'}`}
                 placeholder={editingId ? "Leave blank to keep existing key" : "-----BEGIN OPENSSH PRIVATE KEY-----"}
                 rows={3}
                 style={!showKey ? { WebkitTextSecurity: 'disc' } as any : {}}
               />
+              {errors.privateKey && <span className="text-red-500 text-xs mt-1 block">{errors.privateKey}</span>}
             </div>
 
             <div>
