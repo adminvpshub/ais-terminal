@@ -9,6 +9,7 @@ import cors from 'cors';
 import path, { dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { GoogleGenAI } from "@google/genai";
+import fs from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -24,16 +25,89 @@ const io = new Server(httpServer, {
 
 const PORT = process.env.PORT || 3001;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
 
 const genAI = GEMINI_API_KEY ? new GoogleGenAI({ apiKey: GEMINI_API_KEY }) : null;
 
 app.use(cors());
 app.use(express.json());
 
+// --- Rate Limiter ---
+const USAGE_FILE = path.join(__dirname, 'usage_data.json');
+const MAX_DAILY_PROMPTS = 25;
+
+const RateLimiter = {
+  data: {},
+  loadData() {
+    try {
+      if (fs.existsSync(USAGE_FILE)) {
+        this.data = JSON.parse(fs.readFileSync(USAGE_FILE, 'utf-8'));
+      }
+    } catch (e) {
+      console.error("Failed to load usage data:", e);
+    }
+  },
+  saveData() {
+    fs.writeFile(USAGE_FILE, JSON.stringify(this.data, null, 2), (err) => {
+      if (err) console.error("Failed to save usage data:", err);
+    });
+  },
+  getTodayDate() {
+    // Returns date string YYYY-MM-DD in GMT+7
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Bangkok',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).format(new Date());
+  },
+  check(ip, clientId, adminToken) {
+    if (adminToken && ADMIN_TOKEN && adminToken === ADMIN_TOKEN) {
+      return { allowed: true, remaining: 999 };
+    }
+
+    const today = this.getTodayDate();
+    // Use clientId as primary key to persist across IP changes, fallback to IP
+    const key = clientId || ip;
+
+    if (!this.data[key]) {
+      this.data[key] = { count: 0, date: today };
+    }
+
+    // Reset if new day
+    if (this.data[key].date !== today) {
+      this.data[key] = { count: 0, date: today };
+    }
+
+    if (this.data[key].count >= MAX_DAILY_PROMPTS) {
+      return { allowed: false, remaining: 0, reason: "Daily limit reached" };
+    }
+
+    this.data[key].count++;
+    this.saveData();
+
+    return { allowed: true, remaining: MAX_DAILY_PROMPTS - this.data[key].count };
+  }
+};
+
+// Initialize
+RateLimiter.loadData();
+
 // --- AI Endpoints (Proxy) ---
 
 app.post('/api/ai/generate', async (req, res) => {
     if (!genAI) return res.status(500).json({ error: "Gemini API key not configured on server" });
+
+    // Rate Limit Check
+    const clientId = req.headers['x-client-id'];
+    const adminToken = req.headers['x-admin-token'];
+    const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+
+    const limit = RateLimiter.check(clientIp, clientId, adminToken);
+    if (!limit.allowed) {
+        return res.status(429).json({ error: "Daily AI prompt limit reached (25/day). Please try again tomorrow." });
+    }
+
     const { prompt, config } = req.body;
     try {
         const result = await genAI.models.generateContent({

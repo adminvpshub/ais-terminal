@@ -7,6 +7,20 @@ const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<'landing' | 'app'>('landing');
 
   useEffect(() => {
+    // Initialize Client ID
+    if (!localStorage.getItem('clientId')) {
+        localStorage.setItem('clientId', crypto.randomUUID());
+    }
+
+    // Capture Admin Token from URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token');
+    if (token) {
+        localStorage.setItem('adminToken', token);
+        // Clean URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
     // Check path on load to determine view
     const path = window.location.pathname;
     if (path === '/app') {

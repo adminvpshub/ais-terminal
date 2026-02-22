@@ -3,9 +3,18 @@ import { CommandGenerationResult, LinuxDistro, CommandStep, CommandStatus, Comma
 const API_BASE = import.meta.env.PROD ? '' : 'http://localhost:3001';
 
 async function callAIGenerate(prompt: string, schema: any) {
+    const clientId = localStorage.getItem('clientId');
+    const adminToken = localStorage.getItem('adminToken');
+
+    const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+    };
+    if (clientId) headers['x-client-id'] = clientId;
+    if (adminToken) headers['x-admin-token'] = adminToken;
+
     const response = await fetch(`${API_BASE}/api/ai/generate`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
             prompt,
             config: {
@@ -77,9 +86,10 @@ export const generateLinuxCommand = async (
     }));
 
     return { steps };
-  } catch (error) {
+  } catch (error: any) {
     console.error("Gemini Generation Error:", error);
-    throw new Error("Failed to translate command.");
+    // Propagate the specific error message if it's from our backend (e.g. Rate Limit)
+    throw error;
   }
 };
 
@@ -128,8 +138,8 @@ export const generateCommandFix = async (
       id: crypto.randomUUID(),
       status: CommandStatus.Pending
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error("Gemini Fix Generation Error:", error);
-    throw new Error("Failed to generate fix.");
+    throw error;
   }
 };

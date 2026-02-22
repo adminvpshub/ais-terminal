@@ -67,9 +67,10 @@ jobs:
                   - NODE_ENV=production
                   - PORT=3001
                   - GEMINI_API_KEY=${GEMINI_API_KEY}
+                  - ADMIN_TOKEN=${ADMIN_TOKEN}
                 restart: always
             EOF
 
             # Pull and restart
             docker compose -f docker-compose.prod.yml pull
-            GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}" docker compose -f docker-compose.prod.yml up -d
+            GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}" ADMIN_TOKEN="${{ secrets.ADMIN_TOKEN }}" docker compose -f docker-compose.prod.yml up -d
