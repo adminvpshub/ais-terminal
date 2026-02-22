@@ -412,7 +412,16 @@ const TerminalApp: React.FC = () => {
     const exists = profiles.some(p => p.id === profile.id);
     let updated;
     if (exists) {
-        updated = profiles.map(p => p.id === profile.id ? profile : p);
+        updated = profiles.map(p => {
+             if (p.id === profile.id) {
+                 return {
+                     ...profile,
+                     privateKey: profile.privateKey ? profile.privateKey : p.privateKey,
+                     passphrase: profile.passphrase ? profile.passphrase : p.passphrase
+                 };
+             }
+             return p;
+        });
     } else {
         updated = [...profiles, profile];
     }
