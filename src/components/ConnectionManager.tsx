@@ -95,18 +95,16 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
       // Host Validation
       // IPv4
       const ipv4Regex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
-      // Simple IPv6 check (contains : and hex)
-      const isIPv6 = (val: string) => val.includes(':') && /^[0-9a-fA-F:]+$/.test(val);
       // Hostname (RFC 1123 mostly)
       const hostnameRegex = /^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$/;
 
       const hostVal = host ? host.trim() : '';
       if (!hostVal) {
-          newErrors.host = "Host/IP is required and cannot be empty";
+          newErrors.host = "Host or IPv4 is required and cannot be empty";
       } else {
-          const isValid = ipv4Regex.test(hostVal) || isIPv6(hostVal) || hostnameRegex.test(hostVal);
+          const isValid = ipv4Regex.test(hostVal) || hostnameRegex.test(hostVal);
           if (!isValid) {
-              newErrors.host = "Invalid Host/IP or Hostname format";
+              newErrors.host = "Invalid Host or IPv4 format";
           }
       }
 
@@ -260,7 +258,7 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
             <div className="grid grid-cols-2 gap-2">
                 <div>
                 <label className="block text-xs font-medium text-gray-400 mb-1">
-                  {connectionType === 'cloudflared' ? 'Hostname' : 'Host/IP'}
+                  {connectionType === 'cloudflared' ? 'Hostname' : 'Host / IPv4'}
                 </label>
                 <input 
                     type="text" 
