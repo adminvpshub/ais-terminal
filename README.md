@@ -1,7 +1,7 @@
 <div align="center">
     <h1>AIS-Terminal</h1>
     <p><strong>The AI-Native Terminal for Modern DevOps</strong></p>
-    <p>Describe your task, get verified commands, and fix errors automatically with Gemini 2.0.</p>
+    <p>Describe your task, get verified commands, and fix errors automatically with Gemini 3.0.</p>
 
 <p align="center">
   <img src="/public/screenshots/feature-terminal.png" alt="AIS-Terminal Hero" width="800" />
@@ -11,7 +11,7 @@
 
 ## 🚀 Features
 
-- **AI-Powered Command Generation**: Describe your task in natural language, and Gemini 2.0 will generate the appropriate shell commands.
+- **AI-Powered Command Generation**: Describe your task in natural language, and Gemini 3.0 will generate the appropriate shell commands.
 - **Auto-Fix & Explanations**: If a command fails, the AI analyzes the error output and suggests a fix.
 - **Interactive Terminal**: Full xterm.js integration for a native terminal experience (vim, nano, htop support).
 - **Secure Profile Management**: Store SSH credentials securely with AES-256 encryption and a Master PIN.
@@ -22,7 +22,7 @@
 
 - **Frontend**: React, Vite, Tailwind CSS, xterm.js
 - **Backend**: Node.js, Express, Socket.io, ssh2
-- **AI**: Google Gemini 2.0 Flash (via `@google/genai`)
+- **AI**: Google Gemini 3.0 Flash (via `@google/genai`)
 - **Security**: PBKDF2 Hashing, AES-256-GCM Encryption
 
 ## 📦 Deployment & Installation
