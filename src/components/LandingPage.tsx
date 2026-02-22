@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Terminal, Cpu, Sparkles, Command, Zap, Shield, ArrowRight, Github } from 'lucide-react';
+import { Terminal, Cpu, Sparkles, Command, Zap, Shield, ArrowRight, Github, FileText } from 'lucide-react';
 
 interface LandingPageProps {
   onLaunch: () => void;
@@ -90,7 +90,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLaunch }) => {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
             <FeatureCard
               icon={<Command className="text-purple-400" />}
               title="Natural Language to Bash"
@@ -105,6 +105,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLaunch }) => {
               icon={<Terminal className="text-green-400" />}
               title="Full Interactive PTY"
               description="Not just a command runner. A full interactive terminal supporting vim, nano, htop, and all your favorite TUI tools."
+            />
+            <FeatureCard
+              icon={<FileText className="text-blue-400" />}
+              title="File Upload & Download"
+              description="Seamlessly transfer files between your local machine and the remote server. Drag-and-drop uploads and one-click downloads."
             />
           </div>
         </div>
