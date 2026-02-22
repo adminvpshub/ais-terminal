@@ -85,12 +85,10 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
       // Allow alphanumeric, spaces, hyphens, underscores, dots
       const nameRegex = /^[a-zA-Z0-9_\-\. ]+$/;
 
-      const nameVal = name.trim();
-      if (nameVal === undefined || name === null) {
-          // Note: controlled inputs are rarely null/undefined, but keeping logic consistent
-          newErrors.name = "Profile Name is required";
+      const nameVal = name ? name.trim() : '';
+      if (!nameVal) {
+          newErrors.name = "Profile Name is required and cannot be empty";
       } else if (!nameRegex.test(nameVal)) {
-          // Empty string fails regex -> "Invalid format" as requested
           newErrors.name = "Invalid Profile Name format";
       }
 
@@ -102,9 +100,9 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
       // Hostname (RFC 1123 mostly)
       const hostnameRegex = /^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$/;
 
-      const hostVal = host.trim();
-      if (hostVal === undefined || host === null) {
-          newErrors.host = "Host/IP is required";
+      const hostVal = host ? host.trim() : '';
+      if (!hostVal) {
+          newErrors.host = "Host/IP is required and cannot be empty";
       } else {
           const isValid = ipv4Regex.test(hostVal) || isIPv6(hostVal) || hostnameRegex.test(hostVal);
           if (!isValid) {
@@ -114,12 +112,11 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
 
       // User Validation
       // Standard linux username: start with letter/_, then alphanumeric/-_
-      // But we can be lenient: just ensure it's not empty via regex check
       const userRegex = /^[a-z_][a-z0-9_\-]*$/i;
 
-      const userVal = username.trim();
-      if (userVal === undefined || username === null) {
-          newErrors.username = "User is required";
+      const userVal = username ? username.trim() : '';
+      if (!userVal) {
+          newErrors.username = "User is required and cannot be empty";
       } else if (!userRegex.test(userVal)) {
           newErrors.username = "Invalid User format";
       }
