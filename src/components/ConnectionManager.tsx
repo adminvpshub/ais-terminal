@@ -93,7 +93,7 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
       const hostnameRegex = /^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$/;
 
       const hostVal = host.trim();
-      if (!hostVal) {
+      if (!hostVal || hostVal === '') {
           newErrors.host = "Host/IP is required";
       } else {
           const isValid = ipv4Regex.test(hostVal) || isIPv6(hostVal) || hostnameRegex.test(hostVal);
@@ -103,7 +103,9 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
       }
 
       // User Validation
-      if (!username.trim()) newErrors.username = "User is required";
+      if (!username || username.trim() === '') {
+          newErrors.username = "User is required";
+      }
 
       // Key Validation
       if (!editingId) {
