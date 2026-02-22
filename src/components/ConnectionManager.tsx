@@ -82,7 +82,17 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
       const newErrors: Record<string, string> = {};
 
       // Name Validation
-      if (!name.trim()) newErrors.name = "Profile Name is required";
+      // Allow alphanumeric, spaces, hyphens, underscores, dots
+      const nameRegex = /^[a-zA-Z0-9_\-\. ]+$/;
+
+      const nameVal = name.trim();
+      if (nameVal === undefined || name === null) {
+          // Note: controlled inputs are rarely null/undefined, but keeping logic consistent
+          newErrors.name = "Profile Name is required";
+      } else if (!nameRegex.test(nameVal)) {
+          // Empty string fails regex -> "Invalid format" as requested
+          newErrors.name = "Invalid Profile Name format";
+      }
 
       // Host Validation
       // IPv4
@@ -93,7 +103,7 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
       const hostnameRegex = /^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$/;
 
       const hostVal = host.trim();
-      if (!hostVal) {
+      if (hostVal === undefined || host === null) {
           newErrors.host = "Host/IP is required";
       } else {
           const isValid = ipv4Regex.test(hostVal) || isIPv6(hostVal) || hostnameRegex.test(hostVal);
@@ -103,7 +113,16 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
       }
 
       // User Validation
-      if (!username.trim()) newErrors.username = "User is required";
+      // Standard linux username: start with letter/_, then alphanumeric/-_
+      // But we can be lenient: just ensure it's not empty via regex check
+      const userRegex = /^[a-z_][a-z0-9_\-]*$/i;
+
+      const userVal = username.trim();
+      if (userVal === undefined || username === null) {
+          newErrors.username = "User is required";
+      } else if (!userRegex.test(userVal)) {
+          newErrors.username = "Invalid User format";
+      }
 
       // Key Validation
       if (!editingId) {
