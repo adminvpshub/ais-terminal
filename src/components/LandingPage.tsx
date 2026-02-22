@@ -174,6 +174,27 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLaunch }) => {
           </div>
         </div>
 
+        {/* Feature 4 (New) */}
+        <div className="flex flex-col md:flex-row-reverse items-center gap-12">
+          <div className="flex-1 space-y-6">
+            <div className="inline-block p-3 rounded-lg bg-blue-900/20 border border-blue-800/50">
+              <FileText className="text-blue-400 h-6 w-6" />
+            </div>
+            <h3 className="text-3xl font-bold text-white">Seamless File Transfer</h3>
+            <p className="text-lg text-gray-400 leading-relaxed">
+              Seamlessly bridge your local environment and remote server. Upload configs, download logs, or manage project files with a fully integrated visual file manager. No more SCP commands—just drag, drop, and done.
+            </p>
+            <ul className="space-y-3 text-gray-300">
+              <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div> Drag-and-drop support</li>
+              <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div> Visual file manager</li>
+              <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div> Secure transfer</li>
+            </ul>
+          </div>
+          <div className="flex-1 rounded-xl overflow-hidden border border-gray-800 shadow-2xl">
+            <img src="/screenshots/feature-file-transfer.png" alt="Seamless File Transfer" className="w-full" />
+          </div>
+        </div>
+
       </div>
 
       {/* Footer */}
