@@ -93,9 +93,11 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
       const hostnameRegex = /^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$/;
 
       const hostVal = host.trim();
-      if (!hostVal || hostVal === '') {
+      if (hostVal === undefined || hostVal === null) {
+          // This case should not be reached with controlled input but defensively keep it
           newErrors.host = "Host/IP is required";
       } else {
+          // Empty string falls through to regex validation as requested
           const isValid = ipv4Regex.test(hostVal) || isIPv6(hostVal) || hostnameRegex.test(hostVal);
           if (!isValid) {
               newErrors.host = "Invalid Host/IP or Hostname format";
