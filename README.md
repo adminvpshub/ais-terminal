@@ -78,6 +78,26 @@ To automate deployment to your VPS, set up the following GitHub Secrets:
 - `VPS_SSH_KEY`: Your private SSH key for the VPS.
 - `GH_PAT`: A GitHub Personal Access Token with `read:packages` scope (to pull images on the VPS).
 
+## 🚦 Rate Limiting & Admin Access
+
+To prevent abuse, the Gemini AI API integration is rate-limited to **25 requests per session per day**. The limit resets at **midnight GMT+7** (Asia/Bangkok).
+
+### Bypassing Limits (Admin Access)
+
+You can bypass the rate limit by setting an **Admin Token**.
+
+1.  **Set the Token (Server-Side):**
+    Add `ADMIN_TOKEN` to your environment variables.
+    *   **Local Dev:** Add to `.env`: `ADMIN_TOKEN=your_secret_token`
+    *   **Production:** Add `ADMIN_TOKEN` to your GitHub Secrets (used by `deploy.yml`).
+
+2.  **Authenticate (Client-Side):**
+    Open the application with the `?token=` parameter:
+    ```
+    http://localhost:3000/?token=your_secret_token
+    ```
+    The app will detect the token, save it securely in your browser's LocalStorage, and remove it from the URL bar. This device will now have unlimited AI access.
+
 ## 🔑 SSH Configuration Guide
 
 If you need to connect as a user other than `root` (e.g., `admin` or `sysadmin`) and encounter permission errors, you may need to manually configure the SSH keys on your server.
