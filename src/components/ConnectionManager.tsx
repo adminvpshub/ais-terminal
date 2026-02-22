@@ -226,6 +226,7 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
                   />
                   <span className="text-xs text-gray-300">Direct SSH (Static IP)</span>
                 </label>
+                {/* Cloudflared option disabled temporarily
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="radio"
@@ -236,6 +237,7 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
                   />
                   <span className="text-xs text-gray-300">Cloudflare Tunnel</span>
                 </label>
+                */}
               </div>
             </div>
 
