@@ -37,7 +37,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLaunch }) => {
           <div className="text-center max-w-3xl mx-auto">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-900/30 border border-blue-800 text-blue-400 text-sm mb-8">
               <Sparkles size={14} />
-              <span>Now with Gemini 2.0 Flash Integration</span>
+              <span>Gemini 3.0 Integration</span>
             </div>
             <h1 className="text-5xl md:text-6xl font-extrabold tracking-tight mb-6 bg-gradient-to-r from-white via-blue-100 to-blue-300 bg-clip-text text-transparent">
               The AI-Native Terminal <br/>for Modern DevOps
