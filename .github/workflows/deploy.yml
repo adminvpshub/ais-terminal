@@ -68,9 +68,10 @@ jobs:
                   - PORT=3001
                   - GEMINI_API_KEY=${GEMINI_API_KEY}
                   - ADMIN_TOKEN=${ADMIN_TOKEN}
+                  - MAX_PROMPTS_PER_SESSION_PER_DAY=${MAX_PROMPTS_PER_SESSION_PER_DAY}
                 restart: always
             EOF
 
             # Pull and restart
             docker compose -f docker-compose.prod.yml pull
-            GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}" ADMIN_TOKEN="${{ secrets.ADMIN_TOKEN }}" docker compose -f docker-compose.prod.yml up -d
+            GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}" ADMIN_TOKEN="${{ secrets.ADMIN_TOKEN }}" MAX_PROMPTS_PER_SESSION_PER_DAY="${{ secrets.MAX_PROMPTS_PER_SESSION_PER_DAY }}" docker compose -f docker-compose.prod.yml up -d

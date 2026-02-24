@@ -26,6 +26,7 @@ const io = new Server(httpServer, {
 const PORT = process.env.PORT || 3001;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
+const MAX_DAILY_PROMPTS = parseInt(process.env.MAX_PROMPTS_PER_SESSION_PER_DAY, 10) || 25;
 
 const genAI = GEMINI_API_KEY ? new GoogleGenAI({ apiKey: GEMINI_API_KEY }) : null;
 
@@ -34,7 +35,6 @@ app.use(express.json());
 
 // --- Rate Limiter ---
 const USAGE_FILE = path.join(__dirname, 'usage_data.json');
-const MAX_DAILY_PROMPTS = 25;
 
 const RateLimiter = {
   data: {},
@@ -105,7 +105,7 @@ app.post('/api/ai/generate', async (req, res) => {
 
     const limit = RateLimiter.check(clientIp, clientId, adminToken);
     if (!limit.allowed) {
-        return res.status(429).json({ error: "Daily AI prompt limit reached (25/day). Please try again tomorrow." });
+        return res.status(429).json({ error: `Daily AI prompt limit reached (${MAX_DAILY_PROMPTS}/day). Please try again tomorrow.` });
     }
 
     const { prompt, config } = req.body;

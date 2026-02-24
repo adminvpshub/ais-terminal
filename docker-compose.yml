@@ -13,5 +13,6 @@ services:
     environment:
       - NODE_ENV=development
       - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - MAX_PROMPTS_PER_SESSION_PER_DAY=${MAX_PROMPTS_PER_SESSION_PER_DAY}
     stdin_open: true
     tty: true
