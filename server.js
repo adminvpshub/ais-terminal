@@ -67,8 +67,8 @@ const RateLimiter = {
     }
 
     const today = this.getTodayDate();
-    // Use clientId as primary key to persist across IP changes, fallback to IP
-    const key = clientId || ip;
+    // Strict IP Enforcement: Use IP as primary key, ignore clientId
+    const key = ip;
 
     if (!this.data[key]) {
       this.data[key] = { count: 0, date: today };
@@ -101,7 +101,18 @@ app.post('/api/ai/generate', async (req, res) => {
     // Rate Limit Check
     const clientId = req.headers['x-client-id'];
     const adminToken = req.headers['x-admin-token'];
-    const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+
+    // IP Detection (Cloudflare > X-Forwarded-For > Remote Address)
+    let clientIp = req.headers['cf-connecting-ip'];
+    if (!clientIp) {
+        const forwarded = req.headers['x-forwarded-for'];
+        if (forwarded) {
+            clientIp = typeof forwarded === 'string' ? forwarded.split(',')[0].trim() : forwarded[0];
+        }
+    }
+    if (!clientIp) {
+        clientIp = req.socket.remoteAddress;
+    }
 
     const limit = RateLimiter.check(clientIp, clientId, adminToken);
     if (!limit.allowed) {
