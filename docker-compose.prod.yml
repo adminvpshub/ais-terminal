@@ -12,4 +12,5 @@ services:
       - PORT=3001
       # Pass GEMINI_API_KEY from .env file OR shell environment
       - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - MAX_PROMPTS_PER_SESSION_PER_DAY=${MAX_PROMPTS_PER_SESSION_PER_DAY}
     restart: always

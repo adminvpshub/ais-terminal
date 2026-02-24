@@ -73,6 +73,7 @@
 To automate deployment to your VPS, set up the following GitHub Secrets:
 
 - `GEMINI_API_KEY`: Your Google Gemini API Key.
+- `MAX_PROMPTS_PER_SESSION_PER_DAY`: (Optional) Maximum number of AI prompts allowed per user per day. Defaults to 25.
 - `VPS_HOST`: Your VPS IP address or domain.
 - `VPS_USER`: SSH username (e.g., `root`).
 - `VPS_SSH_KEY`: Your private SSH key for the VPS.
@@ -80,7 +81,7 @@ To automate deployment to your VPS, set up the following GitHub Secrets:
 
 ## 🚦 Rate Limiting & Admin Access
 
-To prevent abuse, the Gemini AI API integration is rate-limited to **25 requests per session per day**. The limit resets at **midnight GMT+7** (Asia/Bangkok).
+To prevent abuse, the Gemini AI API integration is rate-limited per session per day (Default: **25 requests**). This can be customized via the `MAX_PROMPTS_PER_SESSION_PER_DAY` environment variable. The limit resets at **midnight GMT+7** (Asia/Bangkok).
 
 ### Bypassing Limits (Admin Access)
 
