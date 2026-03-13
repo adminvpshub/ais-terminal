@@ -43,7 +43,9 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
   const [username, setUsername] = useState('');
   const [privateKey, setPrivateKey] = useState('');
   const [passphrase, setPassphrase] = useState('');
+  const [password, setPassword] = useState('');
   const [connectionType, setConnectionType] = useState<'direct' | 'cloudflared'>('direct');
+  const [authType, setAuthType] = useState<'key' | 'password'>('key');
   const [cloudflaredClientId, setCloudflaredClientId] = useState('');
   const [cloudflaredClientSecret, setCloudflaredClientSecret] = useState('');
 
@@ -56,7 +58,9 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
     setUsername('');
     setPrivateKey('');
     setPassphrase('');
+    setPassword('');
     setConnectionType('direct');
+    setAuthType('key');
     setCloudflaredClientId('');
     setCloudflaredClientSecret('');
     setEditingId(null);
@@ -71,7 +75,9 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
     setUsername(profile.username);
     setPrivateKey(''); // Always clear key field for security/simplicity. Empty = keep existing.
     setPassphrase(''); // Clear passphrase field. Empty = keep existing.
+    setPassword(''); // Clear password field. Empty = keep existing.
     setConnectionType(profile.connectionType || 'direct');
+    setAuthType(profile.authType || 'key');
     setCloudflaredClientId(profile.cloudflaredClientId || '');
     setCloudflaredClientSecret(profile.cloudflaredClientSecret || '');
     setIsEditing(true);
@@ -119,18 +125,26 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
           newErrors.username = "Invalid User format";
       }
 
-      // Key Validation
-      if (!editingId) {
-          // New Profile: Required + Format
-          if (!privateKey.trim()) {
-              newErrors.privateKey = "SSH Private Key is required";
-          } else if (!privateKey.trim().startsWith('-----BEGIN')) {
-              newErrors.privateKey = "Key must start with -----BEGIN";
+      // Auth Validation
+      if (authType === 'key' || connectionType === 'direct') {
+          if (!editingId) {
+              // New Profile: Required + Format
+              if (!privateKey.trim()) {
+                  newErrors.privateKey = "SSH Private Key is required";
+              } else if (!privateKey.trim().startsWith('-----BEGIN')) {
+                  newErrors.privateKey = "Key must start with -----BEGIN";
+              }
+          } else {
+              // Edit Profile: Optional (empty = keep), Format if filled
+              if (privateKey.trim() && !privateKey.trim().startsWith('-----BEGIN')) {
+                  newErrors.privateKey = "Key must start with -----BEGIN";
+              }
           }
-      } else {
-          // Edit Profile: Optional (empty = keep), Format if filled
-          if (privateKey.trim() && !privateKey.trim().startsWith('-----BEGIN')) {
-              newErrors.privateKey = "Key must start with -----BEGIN";
+      } else if (authType === 'password') {
+          if (!editingId) {
+              if (!password) {
+                  newErrors.password = "Password is required";
+              }
           }
       }
 
@@ -141,14 +155,19 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
   const handleSave = () => {
     if (!validate()) return;
     
+    // For direct connection, we force authType to 'key' because password is not supported yet
+    const finalAuthType = connectionType === 'direct' ? 'key' : authType;
+
     const profileData: SSHProfile = {
       id: editingId || crypto.randomUUID(),
       name,
       host,
       username,
-      privateKey, // If empty string, backend logic preserves existing key
-      passphrase: passphrase || undefined, // If empty/undefined, backend preserves existing
+      privateKey: finalAuthType === 'key' ? privateKey : undefined, // If empty string, backend logic preserves existing key
+      passphrase: finalAuthType === 'key' ? (passphrase || undefined) : undefined, // If empty/undefined, backend preserves existing
+      password: finalAuthType === 'password' ? password : undefined,
       connectionType,
+      authType: finalAuthType,
       cloudflaredClientId: connectionType === 'cloudflared' ? cloudflaredClientId : undefined,
       cloudflaredClientSecret: connectionType === 'cloudflared' ? cloudflaredClientSecret : undefined,
     };
@@ -240,7 +259,6 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
                   />
                   <span className="text-xs text-gray-300">Direct SSH (Static IP)</span>
                 </label>
-                {/* Cloudflared option disabled temporarily
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="radio"
@@ -251,7 +269,6 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
                   />
                   <span className="text-xs text-gray-300">Cloudflare Tunnel</span>
                 </label>
-                */}
               </div>
             </div>
 
@@ -288,61 +305,117 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({
             </div>
 
             {connectionType === 'cloudflared' && (
-              <div className="bg-blue-900/10 p-2 rounded border border-blue-900/30 space-y-2">
+              <>
                 <div>
-                  <label className="block text-xs font-medium text-gray-400 mb-1">Service Token Client ID (Optional)</label>
-                  <input
-                    type="text"
-                    value={cloudflaredClientId}
-                    onChange={(e) => setCloudflaredClientId(e.target.value)}
-                    className="w-full bg-gray-900 border border-gray-600 rounded px-2 py-1 text-xs text-gray-300 focus:ring-1 focus:ring-blue-500 outline-none"
-                    placeholder="access-client-id"
-                  />
+                  <label className="block text-xs font-medium text-gray-400 mb-1">Authentication Type</label>
+                  <div className="flex gap-4 mb-2">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="authType"
+                        checked={authType === 'key'}
+                        onChange={() => {
+                          setAuthType('key');
+                          setErrors({});
+                        }}
+                        className="accent-blue-500"
+                      />
+                      <span className="text-xs text-gray-300">SSH Key</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="authType"
+                        checked={authType === 'password'}
+                        onChange={() => {
+                          setAuthType('password');
+                          setErrors({});
+                        }}
+                        className="accent-blue-500"
+                      />
+                      <span className="text-xs text-gray-300">Password</span>
+                    </label>
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-400 mb-1">Service Token Client Secret (Optional)</label>
-                  <input
-                    type="password"
-                    value={cloudflaredClientSecret}
-                    onChange={(e) => setCloudflaredClientSecret(e.target.value)}
-                    className="w-full bg-gray-900 border border-gray-600 rounded px-2 py-1 text-xs text-gray-300 focus:ring-1 focus:ring-blue-500 outline-none"
-                    placeholder="access-client-secret"
-                  />
+
+                <div className="bg-blue-900/10 p-2 rounded border border-blue-900/30 space-y-2 mb-2">
+                  <div className="text-xs text-blue-300/80 mb-2">Cloudflare Access (Optional)</div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-400 mb-1">Service Token Client ID</label>
+                    <input
+                      type="text"
+                      value={cloudflaredClientId}
+                      onChange={(e) => setCloudflaredClientId(e.target.value)}
+                      className="w-full bg-gray-900 border border-gray-600 rounded px-2 py-1 text-xs text-gray-300 focus:ring-1 focus:ring-blue-500 outline-none"
+                      placeholder="access-client-id"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-400 mb-1">Service Token Client Secret</label>
+                    <input
+                      type="password"
+                      value={cloudflaredClientSecret}
+                      onChange={(e) => setCloudflaredClientSecret(e.target.value)}
+                      className="w-full bg-gray-900 border border-gray-600 rounded px-2 py-1 text-xs text-gray-300 focus:ring-1 focus:ring-blue-500 outline-none"
+                      placeholder="access-client-secret"
+                    />
+                  </div>
                 </div>
-              </div>
+              </>
             )}
 
-            <div>
-              <div className="flex justify-between items-center mb-1">
-                <label className="block text-xs font-medium text-gray-400">SSH Private Key</label>
-                <button onClick={() => setShowKey(!showKey)} className="text-gray-500 hover:text-gray-300">
-                    {showKey ? <EyeOff size={12}/> : <Eye size={12}/>}
-                </button>
-              </div>
-              <textarea 
-                value={privateKey} 
-                onChange={(e) => {
-                    setPrivateKey(e.target.value);
-                    if (errors.privateKey) setErrors(prev => ({...prev, privateKey: ''}));
-                }}
-                className={`w-full bg-gray-900 border ${errors.privateKey ? 'border-red-500' : 'border-gray-600'} rounded px-2 py-1 text-xs text-gray-300 focus:ring-1 focus:ring-blue-500 outline-none font-mono ${showKey ? '' : 'text-security-disc'}`}
-                placeholder={editingId ? "Leave blank to keep existing key" : "-----BEGIN OPENSSH PRIVATE KEY-----"}
-                rows={3}
-                style={!showKey ? { WebkitTextSecurity: 'disc' } as any : {}}
-              />
-              {errors.privateKey && <span className="text-red-500 text-xs mt-1 block">{errors.privateKey}</span>}
-            </div>
+            {(authType === 'key' || connectionType === 'direct') && (
+              <>
+                <div>
+                  <div className="flex justify-between items-center mb-1">
+                    <label className="block text-xs font-medium text-gray-400">SSH Private Key</label>
+                    <button onClick={() => setShowKey(!showKey)} className="text-gray-500 hover:text-gray-300">
+                        {showKey ? <EyeOff size={12}/> : <Eye size={12}/>}
+                    </button>
+                  </div>
+                  <textarea
+                    value={privateKey}
+                    onChange={(e) => {
+                        setPrivateKey(e.target.value);
+                        if (errors.privateKey) setErrors(prev => ({...prev, privateKey: ''}));
+                    }}
+                    className={`w-full bg-gray-900 border ${errors.privateKey ? 'border-red-500' : 'border-gray-600'} rounded px-2 py-1 text-xs text-gray-300 focus:ring-1 focus:ring-blue-500 outline-none font-mono ${showKey ? '' : 'text-security-disc'}`}
+                    placeholder={editingId ? "Leave blank to keep existing key" : "-----BEGIN OPENSSH PRIVATE KEY-----"}
+                    rows={3}
+                    style={!showKey ? { WebkitTextSecurity: 'disc' } as any : {}}
+                  />
+                  {errors.privateKey && <span className="text-red-500 text-xs mt-1 block">{errors.privateKey}</span>}
+                </div>
 
-            <div>
-              <label className="block text-xs font-medium text-gray-400 mb-1">Passphrase (Optional)</label>
-              <input 
-                type="password" 
-                value={passphrase} 
-                onChange={(e) => setPassphrase(e.target.value)} 
-                className="w-full bg-gray-900 border border-gray-600 rounded px-2 py-1 text-sm text-white focus:ring-1 focus:ring-blue-500 outline-none"
-                placeholder={editingId ? "Leave blank to keep existing" : "Key Passphrase"}
-              />
-            </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 mb-1">Passphrase (Optional)</label>
+                  <input
+                    type="password"
+                    value={passphrase}
+                    onChange={(e) => setPassphrase(e.target.value)}
+                    className="w-full bg-gray-900 border border-gray-600 rounded px-2 py-1 text-sm text-white focus:ring-1 focus:ring-blue-500 outline-none"
+                    placeholder={editingId ? "Leave blank to keep existing" : "Key Passphrase"}
+                  />
+                </div>
+              </>
+            )}
+
+            {authType === 'password' && connectionType === 'cloudflared' && (
+              <div>
+                <label className="block text-xs font-medium text-gray-400 mb-1">Password</label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => {
+                      setPassword(e.target.value);
+                      if (errors.password) setErrors(prev => ({...prev, password: ''}));
+                  }}
+                  className={`w-full bg-gray-900 border ${errors.password ? 'border-red-500' : 'border-gray-600'} rounded px-2 py-1 text-sm text-white focus:ring-1 focus:ring-blue-500 outline-none`}
+                  placeholder={editingId ? "Leave blank to keep existing" : "Password"}
+                />
+                {errors.password && <span className="text-red-500 text-xs mt-1 block">{errors.password}</span>}
+              </div>
+            )}
 
             <div className="flex gap-2 pt-2">
               <Button size="sm" variant="secondary" onClick={resetForm} className="flex-1">Cancel</Button>

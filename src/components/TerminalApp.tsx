@@ -391,10 +391,16 @@ const TerminalApp: React.FC = () => {
                 finalPass = await encrypt(p.passphrase, pin) || p.passphrase;
             }
 
+            let finalPassword = p.password;
+            if (typeof p.password === 'string' && p.password.length > 0 && !isEncrypted(p.password)) {
+                finalPassword = await encrypt(p.password, pin) || p.password;
+            }
+
             return {
                 ...p,
                 privateKey: finalKey,
-                passphrase: finalPass
+                passphrase: finalPass,
+                password: finalPassword
             };
         }));
 
@@ -417,7 +423,8 @@ const TerminalApp: React.FC = () => {
                  return {
                      ...profile,
                      privateKey: profile.privateKey ? profile.privateKey : p.privateKey,
-                     passphrase: profile.passphrase ? profile.passphrase : p.passphrase
+                     passphrase: profile.passphrase ? profile.passphrase : p.passphrase,
+                     password: profile.password ? profile.password : p.password
                  };
              }
              return p;
@@ -468,8 +475,22 @@ const TerminalApp: React.FC = () => {
       if (!profile) return;
 
       try {
-          const privateKey = await decrypt(profile.privateKey as string, pin);
-          const passphrase = profile.passphrase ? await decrypt(profile.passphrase as string, pin) : undefined;
+          // Only decrypt if the field exists and is encrypted.
+          // In 'password' authType, we might still have old keys stored, or we might not.
+          let privateKey = profile.privateKey;
+          if (typeof privateKey === 'string' && isEncrypted(privateKey)) {
+              privateKey = await decrypt(privateKey, pin);
+          }
+
+          let passphrase = profile.passphrase;
+          if (typeof passphrase === 'string' && isEncrypted(passphrase)) {
+              passphrase = await decrypt(passphrase, pin);
+          }
+
+          let password = profile.password;
+          if (typeof password === 'string' && isEncrypted(password)) {
+              password = await decrypt(password, pin);
+          }
 
           setConnectionStatus(ConnectionStatus.Connecting);
           setConnectedProfileId(profileId);
@@ -478,11 +499,16 @@ const TerminalApp: React.FC = () => {
               host: profile.host,
               username: profile.username,
               privateKey,
-              passphrase
+              passphrase,
+              password,
+              authType: profile.authType || 'key',
+              connectionType: profile.connectionType || 'direct',
+              cloudflaredClientId: profile.cloudflaredClientId,
+              cloudflaredClientSecret: profile.cloudflaredClientSecret
           });
       } catch (e) {
-          console.error("Failed to decrypt key for connection", e);
-          setBackendError("Failed to decrypt SSH key. Is your PIN correct?");
+          console.error("Failed to decrypt credentials for connection", e);
+          setBackendError("Failed to decrypt SSH credentials. Is your PIN correct?");
           setConnectionStatus(ConnectionStatus.Error);
       }
   };

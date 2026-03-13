@@ -12,9 +12,11 @@ export interface SSHProfile {
   name: string;
   host: string;
   username: string;
-  privateKey: string | boolean; // boolean if masked from backend
+  privateKey?: string | boolean; // boolean if masked from backend
   passphrase?: string | boolean;
+  password?: string | boolean; // new password auth option
   connectionType?: 'direct' | 'cloudflared';
+  authType?: 'key' | 'password';
   cloudflaredClientId?: string;
   cloudflaredClientSecret?: string;
   // distro field is removed as it is now auto-detected
