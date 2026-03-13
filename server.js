@@ -176,7 +176,7 @@ io.on('connection', (socket) => {
     }
 
     if (authType !== 'password' && !privateKey) {
-        socket.emit('ssh:error', 'Missing private key for key authentication');
+        socket.emit('ssh:error', 'Missing SSH private key for authentication');
         return;
     }
 
