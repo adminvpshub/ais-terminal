@@ -162,11 +162,21 @@ io.on('connection', (socket) => {
   console.log('Client connected:', socket.id);
 
   socket.on('ssh:connect', async (payload) => {
-    // Payload is now direct: { host, username, privateKey, passphrase }
-    const { host, username, privateKey, passphrase, connectionType, cloudflaredClientId, cloudflaredClientSecret } = payload;
+    // Payload is now direct: { host, username, privateKey, passphrase, password, authType }
+    const { host, username, privateKey, passphrase, password, authType, connectionType, cloudflaredClientId, cloudflaredClientSecret } = payload;
 
-    if (!host || !username || !privateKey) {
-        socket.emit('ssh:error', 'Missing connection details');
+    if (!host || !username) {
+        socket.emit('ssh:error', 'Missing connection details (host or username)');
+        return;
+    }
+
+    if (authType === 'password' && !password) {
+        socket.emit('ssh:error', 'Missing password for password authentication');
+        return;
+    }
+
+    if (authType !== 'password' && !privateKey) {
+        socket.emit('ssh:error', 'Missing private key for key authentication');
         return;
     }
 
@@ -257,8 +267,9 @@ io.on('connection', (socket) => {
             host,
             port: 22,
             username,
-            privateKey,
-            passphrase,
+            privateKey: authType === 'password' ? undefined : privateKey,
+            passphrase: authType === 'password' ? undefined : passphrase,
+            password: authType === 'password' ? password : undefined,
             sock, // Use the custom stream if cloudflared
             keepaliveInterval: 10000,
             keepaliveCountMax: 3,
