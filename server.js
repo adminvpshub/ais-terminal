@@ -234,6 +234,13 @@ io.on('connection', (socket) => {
                 }
             });
 
+            // If cloudflared exits mid-session (tunnel drop), writes fail with EPIPE.
+            // The write callback already reports it to ssh2; without this listener the
+            // pipe's own 'error' event is unhandled and crashes the whole server.
+            proxy.stdin.on('error', (err) => {
+                console.error(`Cloudflared stdin error for ${socket.id}:`, err.message);
+            });
+
             // Manual Duplex stream implementation as requested
             sock = new Duplex({
                 read(size) {
@@ -500,11 +507,18 @@ io.on('connection', (socket) => {
       }
   });
 
-  socket.on('files:upload:chunk', (data) => {
+  socket.on('files:upload:chunk', (data, ack) => {
+      const reply = typeof ack === 'function' ? ack : () => {};
       const session = connections.get(socket.id);
-      if (session && session.uploadStream) {
-          session.uploadStream.write(data);
+      if (!session || !session.uploadStream) {
+          reply({ ok: false, error: 'No active upload' });
+          return;
       }
+      // The write callback fires once the remote SFTP server has confirmed the chunk,
+      // so the client can show real progress and pace itself instead of flooding.
+      session.uploadStream.write(data, (err) => {
+          reply(err ? { ok: false, error: err.message } : { ok: true });
+      });
   });
 
   socket.on('files:upload:end', () => {

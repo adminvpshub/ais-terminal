@@ -39,47 +39,74 @@ export const fileService = {
             }
 
             const chunkSize = 64 * 1024; // 64KB chunks
+            // Chunks sent but not yet confirmed written on the remote host. A small window
+            // keeps the pipe full while progress follows confirmed bytes, not local reads.
+            const maxInFlight = 8;
             const totalSize = file.size;
             let offset = 0;
+            let confirmed = 0;
+            let inFlight = 0;
+            let pumping = false;
+            let endSent = false;
+            let failed = false;
 
             const onReady = () => {
-                readNextChunk();
+                pump();
             };
 
             const onSuccess = (path: string) => {
                 if (path === remotePath) {
                     cleanup();
+                    onProgress(100);
                     resolve();
                 }
             };
 
             const onError = (msg: string) => {
-                cleanup();
-                reject(new Error(msg));
+                fail(new Error(msg));
             };
 
-            const readNextChunk = () => {
-                if (offset >= totalSize) {
-                    socket.emit('files:upload:end');
+            const fail = (err: Error) => {
+                if (failed) return;
+                failed = true;
+                cleanup();
+                reject(err);
+            };
+
+            const onChunkAck = (size: number, res?: { ok: boolean; error?: string }) => {
+                inFlight--;
+                if (!res?.ok) {
+                    fail(new Error(res?.error || 'Upload failed'));
                     return;
                 }
+                confirmed += size;
+                // Hold at 99% until the server reports the file is closed
+                onProgress(Math.min(99, Math.round((confirmed / totalSize) * 100)));
+                pump();
+            };
 
-                const reader = new FileReader();
-                const blob = file.slice(offset, offset + chunkSize);
-
-                reader.onload = (e) => {
-                    if (e.target?.result) {
-                        socket.emit('files:upload:chunk', e.target.result);
+            // Single sequential loop so chunks are always emitted in file order
+            const pump = async () => {
+                if (pumping) return;
+                pumping = true;
+                try {
+                    while (!failed && inFlight < maxInFlight && offset < totalSize) {
+                        const blob = file.slice(offset, offset + chunkSize);
+                        const data = await blob.arrayBuffer();
+                        if (failed) return;
                         offset += blob.size;
-                        onProgress(Math.min(100, Math.round((offset / totalSize) * 100)));
-                        // We can blindly push, or wait for ack.
-                        // SSH streams handle backpressure but socket.io might flood.
-                        // For MVP, we just push.
-                        readNextChunk();
+                        inFlight++;
+                        socket.emit('files:upload:chunk', data, (res?: { ok: boolean; error?: string }) => onChunkAck(blob.size, res));
                     }
-                };
-                reader.onerror = () => reject(new Error('File read failed'));
-                reader.readAsArrayBuffer(blob);
+                    if (!failed && !endSent && offset >= totalSize && inFlight === 0) {
+                        endSent = true;
+                        socket.emit('files:upload:end');
+                    }
+                } catch {
+                    fail(new Error('File read failed'));
+                } finally {
+                    pumping = false;
+                }
             };
 
             socket.on('files:upload:ready', onReady);
