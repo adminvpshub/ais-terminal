@@ -79,10 +79,13 @@ jobs:
           printf '%s' "${{ secrets.GH_PAT }}" | sudo -n docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
           # Create or update docker-compose.prod.yml
+          # Fixed project/container name so it doesn't depend on TARGET_DIRECTORY's name
           sudo -n tee "$COMPOSE_FILE" > /dev/null <<'EOF'
+          name: ais-terminal
           services:
             app:
               image: ghcr.io/adminvpshub/ais-terminal:latest
+              container_name: ais-terminal
               ports:
                 - "3000:3001"
               environment:
@@ -107,6 +110,10 @@ jobs:
 
           # Pull and restart
           sudo -n docker compose --project-directory "$APP_DIR" --env-file "$ENV_FILE" -f "$COMPOSE_FILE" pull < /dev/null
+          # Containers from earlier deploys (other project names) still hold port 3000
+          for old in apps-app-1 vpshubiovn-app-1; do
+            sudo -n docker rm -f "$old" > /dev/null 2>&1 < /dev/null || true
+          done
           sudo -n docker compose --project-directory "$APP_DIR" --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d < /dev/null
           DEPLOY
 
