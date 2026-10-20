@@ -28,6 +28,21 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
 const MAX_DAILY_PROMPTS = parseInt(process.env.MAX_PROMPTS_PER_SESSION_PER_DAY, 10) || 25;
 
+// Cloudflare Tunnel hostnames that this server can reach on the local network.
+// Format: "ssh.example.com=192.168.1.200:22,other.example.com=192.168.1.210"
+// Matching cloudflared profiles connect straight to the LAN address instead of
+// going out to Cloudflare and back (much faster file transfers).
+const INTERNAL_SSH_ROUTES = new Map();
+for (const entry of (process.env.INTERNAL_SSH_ROUTES || '').split(',')) {
+    const [hostname, target] = entry.split('=').map(s => s && s.trim());
+    if (!hostname || !target) continue;
+    const [routeHost, routePort] = target.split(':');
+    INTERNAL_SSH_ROUTES.set(hostname.toLowerCase(), { host: routeHost, port: parseInt(routePort, 10) || 22 });
+}
+if (INTERNAL_SSH_ROUTES.size > 0) {
+    console.log(`Internal SSH routes: ${[...INTERNAL_SSH_ROUTES.keys()].join(', ')}`);
+}
+
 const genAI = GEMINI_API_KEY ? new GoogleGenAI({ apiKey: GEMINI_API_KEY }) : null;
 
 app.use(cors());
@@ -190,8 +205,13 @@ io.on('connection', (socket) => {
 
         const conn = new Client();
         let sock;
+        const internalRoute = connectionType === 'cloudflared'
+            ? INTERNAL_SSH_ROUTES.get(host.trim().toLowerCase())
+            : undefined;
 
-        if (connectionType === 'cloudflared') {
+        if (internalRoute) {
+            console.log(`Routing ${host} via LAN ${internalRoute.host}:${internalRoute.port} for ${socket.id}`);
+        } else if (connectionType === 'cloudflared') {
             const args = ['access', 'ssh', '--hostname', host];
 
             if (cloudflaredClientId) {
@@ -264,8 +284,8 @@ io.on('connection', (socket) => {
             socket.emit('ssh:status', 'disconnected');
             connections.delete(socket.id);
         }).connect({
-            host,
-            port: 22,
+            host: internalRoute ? internalRoute.host : host,
+            port: internalRoute ? internalRoute.port : 22,
             username,
             privateKey: authType === 'password' ? undefined : privateKey,
             passphrase: authType === 'password' ? undefined : passphrase,

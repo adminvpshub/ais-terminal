@@ -123,6 +123,16 @@ If you need to connect as a user other than `root` (e.g., `admin` or `sysadmin`)
 
 For a detailed example of diagnosing and fixing these issues, please refer to [server_fix_log.md](./server_fix_log.md).
 
+### Skipping the Tunnel for Servers on the Same Network
+
+When the app itself is reached through Cloudflare and the target server sits on the same LAN as the app container, a `cloudflared` profile sends every byte out to Cloudflare and back. Set `INTERNAL_SSH_ROUTES` to map tunnel hostnames to their LAN addresses and the backend will connect directly instead:
+
+```env
+INTERNAL_SSH_ROUTES=ssh.example.com=192.168.1.200:22,other.example.com=192.168.1.210
+```
+
+Profiles keep using the tunnel hostname, so nothing changes for users. The port defaults to `22`. Hostnames not in the list still go through `cloudflared`. Cloudflare Access (`--id` / `--secret`) is not applied on the LAN route; SSH authentication still is.
+
 ## 🔒 Security
 
 *   **HTTPS Requirement**: This application uses the **Web Crypto API** for secure PIN hashing and encryption. This API is **only available in Secure Contexts** (HTTPS or localhost). If you are deploying to a public server, **you must serve the application over HTTPS**. Accessing it via HTTP will cause security setup failures.
