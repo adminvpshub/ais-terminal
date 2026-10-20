@@ -49,15 +49,29 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
-            # Create app directory if not exists
-            mkdir -p ${{ secrets.TARGET_DIRECTORY }}
-            cd ${{ secrets.TARGET_DIRECTORY }}
+            set -e
+
+            # VPS_USER is not root: the target directory and docker need sudo.
+            # Set VPS_SUDO_PASSWORD unless the user has passwordless sudo.
+            # Credentials are cached once here so later `sudo -n` calls don't prompt.
+            SUDO_PASSWORD='${{ secrets.VPS_SUDO_PASSWORD }}'
+            if [ -n "$SUDO_PASSWORD" ]; then
+              printf '%s\n' "$SUDO_PASSWORD" | sudo -S -p '' -v
+            else
+              sudo -n -v
+            fi
+            unset SUDO_PASSWORD
+
+            # The directory may be root-only (e.g. /root/apps), so use absolute paths instead of cd
+            APP_DIR='${{ secrets.TARGET_DIRECTORY }}'
+            COMPOSE_FILE="$APP_DIR/docker-compose.prod.yml"
+            sudo -n mkdir -p "$APP_DIR"
 
             # Login to GHCR on VPS (Requires a PAT with 'read:packages' scope)
-            echo "${{ secrets.GH_PAT }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            printf '%s' "${{ secrets.GH_PAT }}" | sudo -n docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
             # Create or update docker-compose.prod.yml
-            cat <<'EOF' > docker-compose.prod.yml
+            sudo -n tee "$COMPOSE_FILE" > /dev/null <<'EOF'
             services:
               app:
                 image: ghcr.io/adminvpshub/ais-terminal:latest
@@ -69,9 +83,15 @@ jobs:
                   - GEMINI_API_KEY=${GEMINI_API_KEY}
                   - ADMIN_TOKEN=${ADMIN_TOKEN}
                   - MAX_PROMPTS_PER_SESSION_PER_DAY=${MAX_PROMPTS_PER_SESSION_PER_DAY}
+                  - INTERNAL_SSH_ROUTES=${INTERNAL_SSH_ROUTES}
                 restart: always
             EOF
 
             # Pull and restart
-            docker compose -f docker-compose.prod.yml pull
-            GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}" ADMIN_TOKEN="${{ secrets.ADMIN_TOKEN }}" MAX_PROMPTS_PER_SESSION_PER_DAY="${{ secrets.MAX_PROMPTS_PER_SESSION_PER_DAY }}" docker compose -f docker-compose.prod.yml up -d
+            sudo -n docker compose --project-directory "$APP_DIR" -f "$COMPOSE_FILE" pull
+            sudo -n env \
+              GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}" \
+              ADMIN_TOKEN="${{ secrets.ADMIN_TOKEN }}" \
+              MAX_PROMPTS_PER_SESSION_PER_DAY="${{ secrets.MAX_PROMPTS_PER_SESSION_PER_DAY || secrets.MAX_PROMTS_PER_SESSION_PER_DAY }}" \
+              INTERNAL_SSH_ROUTES="${{ vars.INTERNAL_SSH_ROUTES }}" \
+              docker compose --project-directory "$APP_DIR" -f "$COMPOSE_FILE" up -d
