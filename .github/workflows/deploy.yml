@@ -42,55 +42,84 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
-      - name: Deploy to VPS via SSH
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          script: |
-            set -e
+      - name: Install cloudflared
+        run: |
+          sudo curl -fsSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /usr/local/bin/cloudflared
+          sudo chmod +x /usr/local/bin/cloudflared
+          cloudflared --version
 
-            # VPS_USER is not root. It needs passwordless sudo for exactly:
-            #   /usr/bin/mkdir, /usr/bin/tee, /usr/bin/docker
-            # `sudo -n` fails fast instead of waiting for a password.
+      # The VPS has no public IP: VPS_HOST is its Cloudflare Tunnel SSH hostname
+      # and the connection goes through `cloudflared access ssh`.
+      - name: Deploy to VPS via SSH (Cloudflare Tunnel)
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
 
-            # The directory may be root-only (e.g. /root/apps), so use absolute paths instead of cd
-            APP_DIR='${{ secrets.TARGET_DIRECTORY }}'
-            COMPOSE_FILE="$APP_DIR/docker-compose.prod.yml"
-            ENV_FILE="$APP_DIR/.env.deploy"
-            sudo -n mkdir -p "$APP_DIR"
+          # Script run on the VPS. Quoted heredoc: Actions fills in the secret
+          # expressions before the shell runs, so their values stay literal.
+          cat > deploy.sh <<'DEPLOY'
+          set -e
 
-            # Login to GHCR on VPS (Requires a PAT with 'read:packages' scope)
-            printf '%s' "${{ secrets.GH_PAT }}" | sudo -n docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          # VPS_USER is not root. It needs passwordless sudo for exactly:
+          #   /usr/bin/mkdir, /usr/bin/tee, /usr/bin/docker
+          # `sudo -n` fails fast instead of waiting for a password.
 
-            # Create or update docker-compose.prod.yml
-            sudo -n tee "$COMPOSE_FILE" > /dev/null <<'EOF'
-            services:
-              app:
-                image: ghcr.io/adminvpshub/ais-terminal:latest
-                ports:
-                  - "3000:3001"
-                environment:
-                  - NODE_ENV=production
-                  - PORT=3001
-                  - GEMINI_API_KEY=${GEMINI_API_KEY}
-                  - ADMIN_TOKEN=${ADMIN_TOKEN}
-                  - MAX_PROMPTS_PER_SESSION_PER_DAY=${MAX_PROMPTS_PER_SESSION_PER_DAY}
-                  - INTERNAL_SSH_ROUTES=${INTERNAL_SSH_ROUTES}
-                restart: always
-            EOF
+          # The directory may be root-only (e.g. /root/apps), so use absolute paths instead of cd
+          APP_DIR='${{ secrets.TARGET_DIRECTORY }}'
+          COMPOSE_FILE="$APP_DIR/docker-compose.prod.yml"
+          ENV_FILE="$APP_DIR/.env.deploy"
+          sudo -n mkdir -p "$APP_DIR"
 
-            # Values for the compose file. sudo strips the caller's environment, so pass
-            # them through --env-file; umask 077 keeps the file (it holds secrets) root-only.
-            umask 077
-            sudo -n tee "$ENV_FILE" > /dev/null <<'EOF'
-            GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
-            ADMIN_TOKEN=${{ secrets.ADMIN_TOKEN }}
-            MAX_PROMPTS_PER_SESSION_PER_DAY=${{ secrets.MAX_PROMPTS_PER_SESSION_PER_DAY || secrets.MAX_PROMTS_PER_SESSION_PER_DAY }}
-            INTERNAL_SSH_ROUTES=${{ vars.INTERNAL_SSH_ROUTES }}
-            EOF
+          # Login to GHCR on VPS (Requires a PAT with 'read:packages' scope)
+          printf '%s' "${{ secrets.GH_PAT }}" | sudo -n docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-            # Pull and restart
-            sudo -n docker compose --project-directory "$APP_DIR" --env-file "$ENV_FILE" -f "$COMPOSE_FILE" pull
-            sudo -n docker compose --project-directory "$APP_DIR" --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d
+          # Create or update docker-compose.prod.yml
+          sudo -n tee "$COMPOSE_FILE" > /dev/null <<'EOF'
+          services:
+            app:
+              image: ghcr.io/adminvpshub/ais-terminal:latest
+              ports:
+                - "3000:3001"
+              environment:
+                - NODE_ENV=production
+                - PORT=3001
+                - GEMINI_API_KEY=${GEMINI_API_KEY}
+                - ADMIN_TOKEN=${ADMIN_TOKEN}
+                - MAX_PROMPTS_PER_SESSION_PER_DAY=${MAX_PROMPTS_PER_SESSION_PER_DAY}
+                - INTERNAL_SSH_ROUTES=${INTERNAL_SSH_ROUTES}
+              restart: always
+          EOF
+
+          # Values for the compose file. sudo strips the caller's environment, so pass
+          # them through --env-file; umask 077 keeps the file (it holds secrets) root-only.
+          umask 077
+          sudo -n tee "$ENV_FILE" > /dev/null <<'EOF'
+          GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
+          ADMIN_TOKEN=${{ secrets.ADMIN_TOKEN }}
+          MAX_PROMPTS_PER_SESSION_PER_DAY=${{ secrets.MAX_PROMPTS_PER_SESSION_PER_DAY || secrets.MAX_PROMTS_PER_SESSION_PER_DAY }}
+          INTERNAL_SSH_ROUTES=${{ vars.INTERNAL_SSH_ROUTES }}
+          EOF
+
+          # Pull and restart
+          sudo -n docker compose --project-directory "$APP_DIR" --env-file "$ENV_FILE" -f "$COMPOSE_FILE" pull < /dev/null
+          sudo -n docker compose --project-directory "$APP_DIR" --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d < /dev/null
+          DEPLOY
+
+          # Retry only connection failures (exit 255); the script is safe to re-run.
+          for attempt in 1 2 3; do
+            code=0
+            ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o BatchMode=yes \
+              -o StrictHostKeyChecking=accept-new -o ServerAliveInterval=15 \
+              -o "ProxyCommand=cloudflared access ssh --hostname %h" \
+              "$VPS_USER@$VPS_HOST" 'bash -s' < deploy.sh || code=$?
+            [ "$code" -ne 255 ] && break
+            echo "SSH connection failed (attempt $attempt), retrying in 10s..."
+            sleep 10
+          done
+          rm -f deploy.sh ~/.ssh/deploy_key
+          exit "$code"
