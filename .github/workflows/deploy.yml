@@ -51,20 +51,14 @@ jobs:
           script: |
             set -e
 
-            # VPS_USER is not root: the target directory and docker need sudo.
-            # Set VPS_SUDO_PASSWORD unless the user has passwordless sudo.
-            # Credentials are cached once here so later `sudo -n` calls don't prompt.
-            SUDO_PASSWORD='${{ secrets.VPS_SUDO_PASSWORD }}'
-            if [ -n "$SUDO_PASSWORD" ]; then
-              printf '%s\n' "$SUDO_PASSWORD" | sudo -S -p '' -v
-            else
-              sudo -n -v
-            fi
-            unset SUDO_PASSWORD
+            # VPS_USER is not root. It needs passwordless sudo for exactly:
+            #   /usr/bin/mkdir, /usr/bin/tee, /usr/bin/docker
+            # `sudo -n` fails fast instead of waiting for a password.
 
             # The directory may be root-only (e.g. /root/apps), so use absolute paths instead of cd
             APP_DIR='${{ secrets.TARGET_DIRECTORY }}'
             COMPOSE_FILE="$APP_DIR/docker-compose.prod.yml"
+            ENV_FILE="$APP_DIR/.env.deploy"
             sudo -n mkdir -p "$APP_DIR"
 
             # Login to GHCR on VPS (Requires a PAT with 'read:packages' scope)
@@ -87,11 +81,16 @@ jobs:
                 restart: always
             EOF
 
+            # Values for the compose file. sudo strips the caller's environment, so pass
+            # them through --env-file; umask 077 keeps the file (it holds secrets) root-only.
+            umask 077
+            sudo -n tee "$ENV_FILE" > /dev/null <<'EOF'
+            GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
+            ADMIN_TOKEN=${{ secrets.ADMIN_TOKEN }}
+            MAX_PROMPTS_PER_SESSION_PER_DAY=${{ secrets.MAX_PROMPTS_PER_SESSION_PER_DAY || secrets.MAX_PROMTS_PER_SESSION_PER_DAY }}
+            INTERNAL_SSH_ROUTES=${{ vars.INTERNAL_SSH_ROUTES }}
+            EOF
+
             # Pull and restart
-            sudo -n docker compose --project-directory "$APP_DIR" -f "$COMPOSE_FILE" pull
-            sudo -n env \
-              GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}" \
-              ADMIN_TOKEN="${{ secrets.ADMIN_TOKEN }}" \
-              MAX_PROMPTS_PER_SESSION_PER_DAY="${{ secrets.MAX_PROMPTS_PER_SESSION_PER_DAY || secrets.MAX_PROMTS_PER_SESSION_PER_DAY }}" \
-              INTERNAL_SSH_ROUTES="${{ vars.INTERNAL_SSH_ROUTES }}" \
-              docker compose --project-directory "$APP_DIR" -f "$COMPOSE_FILE" up -d
+            sudo -n docker compose --project-directory "$APP_DIR" --env-file "$ENV_FILE" -f "$COMPOSE_FILE" pull
+            sudo -n docker compose --project-directory "$APP_DIR" --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d
