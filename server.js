@@ -479,7 +479,11 @@ io.on('connection', (socket) => {
 
   socket.on('files:upload:start', ({ path: filePath }) => {
       const session = connections.get(socket.id);
-      if (!session || !session.sftp) return;
+      if (!session || !session.sftp) {
+          // e.g. the socket reconnected and has no SSH session yet; don't leave the client waiting
+          socket.emit('files:error', 'Upload failed: SFTP not available (connection was reset, please reconnect)');
+          return;
+      }
 
       try {
           // If a stream exists, close it (cleanup)
