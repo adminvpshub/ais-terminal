@@ -5,6 +5,9 @@ const socketUrl = import.meta.env.PROD ? window.location.origin : 'http://localh
 // Singleton socket instance
 export const socket: Socket = io(socketUrl, {
   autoConnect: false,
+  // Behind Cloudflare Tunnel long-polling is extremely slow and drops large binary
+  // packets (file uploads), so go straight to WebSocket and keep polling as fallback.
+  transports: ['websocket', 'polling'],
 });
 
 export const connectSocket = () => {

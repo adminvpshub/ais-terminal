@@ -49,9 +49,23 @@ export const fileService = {
             let pumping = false;
             let endSent = false;
             let failed = false;
+            // Give up instead of hanging when the server stops responding (e.g. the tunnel stalls)
+            const stallTimeoutMs = 60 * 1000;
+            let lastActivity = Date.now();
+            const watchdog = setInterval(() => {
+                if (Date.now() - lastActivity > stallTimeoutMs) {
+                    fail(new Error('Upload stalled: no response from server for 60s'));
+                }
+            }, 5000);
 
             const onReady = () => {
+                lastActivity = Date.now();
                 pump();
+            };
+
+            // The server drops the SSH session when the socket disconnects, so the upload can't resume
+            const onDisconnect = () => {
+                fail(new Error('Connection lost during upload'));
             };
 
             const onSuccess = (path: string) => {
@@ -75,6 +89,7 @@ export const fileService = {
 
             const onChunkAck = (size: number, res?: { ok: boolean; error?: string }) => {
                 inFlight--;
+                lastActivity = Date.now();
                 if (!res?.ok) {
                     fail(new Error(res?.error || 'Upload failed'));
                     return;
@@ -112,13 +127,20 @@ export const fileService = {
             socket.on('files:upload:ready', onReady);
             socket.on('files:upload:success', onSuccess);
             socket.on('files:error', onError);
+            socket.on('disconnect', onDisconnect);
 
             const cleanup = () => {
+                clearInterval(watchdog);
                 socket.off('files:upload:ready', onReady);
                 socket.off('files:upload:success', onSuccess);
                 socket.off('files:error', onError);
+                socket.off('disconnect', onDisconnect);
             };
 
+            if (!socket.connected) {
+                fail(new Error('Not connected to server'));
+                return;
+            }
             socket.emit('files:upload:start', { path: remotePath });
         });
     },
